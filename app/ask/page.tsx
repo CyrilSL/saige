@@ -20,6 +20,7 @@ import {
     Bell,
     ChevronRight,
     Bot,
+    Home,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -37,18 +38,128 @@ const BRAND_LIGHT = "#eef2fb";
 
 // ─── fake AI responses ────────────────────────────────────────────────────────
 
+const S = (data: object) => `##SAIGE_STRUCTURED##${JSON.stringify(data)}`;
+
 const FAKE_RESPONSES = [
-    "Great question! Here's what works best in high-performing dental practices:\n\nFor scheduling efficiency, the key is **blocking your schedule intentionally** rather than filling every opening slot:\n\n**1. Designate block scheduling zones**\nReserve morning blocks for high-production procedures (crowns, implants, root canals) and afternoons for hygiene and new patient exams.\n\n**2. Establish a 'Yes, And' cancellation policy**\nWhen a patient cancels, immediately offer the next available slot *and* add them to a same-day list so you can call when openings appear.\n\n**3. Track your schedule analysis weekly**\nMeasure scheduled production vs. actual production. A healthy practice runs at 95%+ of scheduled production.\n\nWould you like a script for your front desk to handle last-minute cancellations?",
-    "Absolutely — here's how top dental offices handle insurance appeals:\n\n**Step 1: Request the EOB and denial reason**\nAlways get the Explanation of Benefits in writing before writing your appeal.\n\n**Step 2: Write a clinical narrative**\nYour appeal letter should include:\n- The patient's clinical presentation\n- Why the treatment was medically necessary\n- Supporting documentation (X-rays, periodontal charting, photos)\n\n**Step 3: Reference the plan's own language**\nQuote directly from the patient's Certificate of Coverage where possible. Insurers are more likely to reverse a denial when you cite their own policy.\n\n**Step 4: Set a follow-up reminder**\nMost carriers are required to respond within 30–60 days. Track every appeal with a due date.\n\nWould you like me to draft a template appeal letter you can customize?",
-    "This is one of the most common front office challenges. Here are proven strategies:\n\n**Treatment Presentation Best Practices**\n\n1. **Lead with the patient's concern, not the diagnosis**\n   Start with what *they* said matters — 'You mentioned sensitivity when you eat cold foods...'\n\n2. **Present the full treatment plan first, then break it down**\n   Show the complete picture, then offer phasing options. Never pre-judge what a patient can afford.\n\n3. **Use visual aids**\n   Intraoral photos, X-rays with annotations, and 3D imaging dramatically improve case acceptance.\n\n4. **Quote confidently**\n   Don't apologize for fees. Present the investment clearly: 'Your portion after insurance is estimated at $850.'\n\n5. **Offer financing options proactively**\n   Mention CareCredit/Sunbit before the patient asks — it removes the price barrier entirely.\n\nCase acceptance improves by 20–30% in practices that follow a consistent presentation script. Want me to write one for your team?",
-    "Tracking the right metrics is the difference between guessing and growing. Here are the KPIs every dental practice should monitor monthly:\n\n**Production**\n- Total production (by provider)\n- Collection rate (should be 98%+)\n- Average production per visit\n\n**Scheduling**\n- Schedule utilization rate (scheduled vs. available hours)\n- No-show & cancellation rate (target: under 5%)\n- New patient numbers\n\n**Patient Experience**\n- Online review rating & volume\n- Patient retention rate (are existing patients returning?)\n- Referral source tracking\n\n**Clinical**\n- Case acceptance rate (target: 85%+ for diagnosed treatment)\n- Hygiene reappointment rate (target: 85%+)\n\nI'd recommend a simple dashboard reviewed in a weekly team huddle. Would you like a template spreadsheet for tracking these?",
+    S({
+        sayThis: "I can help with that! Let me pull up the benefits first. Can I get your date of birth and the insurance ID on file so I can verify your coverage before confirming your appointment?",
+        doThis: [
+            "Pull up the patient's profile in the PMS (Dentrix / Eaglesoft)",
+            "Navigate to the insurance portal or call the benefits line",
+            "Verify: plan type, annual max, deductible (individual/family), remaining balance",
+            "Confirm frequency limitations — cleanings, X-rays, crowns",
+            "Check for a missing tooth clause if restorative treatment is planned",
+            "Document everything: rep name, call reference #, date and time",
+            "Share an estimated patient portion before confirming the appointment",
+        ],
+        escalateIf: [
+            "Patient has two active insurance plans — coordinate benefits with billing team",
+            "Portal is down and phone hold exceeds 20 min — flag for billing coordinator",
+            "Plan type is unclear (HMO vs PPO) — escalate before quoting any patient portion",
+        ],
+        notes: [
+            "Always say 'estimated based on your plan' — never guarantee coverage",
+            "For new patients, verify benefits at least 48–72 hrs before appointment",
+        ],
+        confidence: "high",
+        source: "Insurance Verification SOP",
+        sourceType: "local",
+    }),
+    S({
+        sayThis: "We completely understand your concern. Let me review your account and the charges with you right now — we want to make sure everything looks right.",
+        doThis: [
+            "Pull the patient's ledger in the PMS",
+            "Review the EOB for the date of service in question",
+            "Identify whether the issue is a carrier denial, co-pay, or billing error",
+            "If billing error: correct it and adjust the balance immediately",
+            "If carrier denial: explain the reason and offer to help with an appeal",
+            "If correct: walk through the breakdown line-by-line, calmly",
+            "Document the conversation in the patient's notes",
+        ],
+        escalateIf: [
+            "Patient threatens legal action or requests records — escalate to office manager immediately",
+            "Dispute involves more than $500 — loop in billing coordinator",
+            "Patient becomes aggressive or raises their voice",
+        ],
+        notes: [
+            "Never argue or dismiss the concern — validate first, then clarify",
+            "Offer a private space to discuss if other patients are nearby",
+        ],
+        confidence: "high",
+        source: "Patient Billing Policy",
+        sourceType: "local",
+    }),
+    S({
+        sayThis: "We have an opening — before I confirm it, let me take a moment to go over what the visit will involve so you know exactly what to expect and what your estimated cost will be.",
+        doThis: [
+            "Identify the appointment type and duration required",
+            "Check the schedule for the correct block (hygiene vs. provider)",
+            "Pull insurance and calculate estimated patient portion",
+            "Confirm any pre-appointment requirements (X-rays, health history update)",
+            "Send confirmation with time, provider name, and what to bring",
+            "Add to reminder workflow: 7-day email, 3-day text, day-before call",
+        ],
+        escalateIf: [
+            "Patient requires sedation — confirm with clinical team before scheduling",
+            "Patient has a complex medical history — flag for provider review first",
+            "Requested appointment type doesn't match available block time",
+        ],
+        notes: [
+            "Always confirm the correct provider — some patients are assigned to a specific hygienist",
+            "New patients: add 15–20 min buffer for paperwork and health history",
+        ],
+        confidence: "high",
+        source: "Scheduling Policy",
+        sourceType: "local",
+    }),
+    S({
+        sayThis: "I completely understand — let me check our records. Can I get your name and date of birth? I want to make sure we have everything updated on our end and get you taken care of right away.",
+        doThis: [
+            "Verify the patient's identity and pull their account",
+            "Check the recall date and last visit in the PMS",
+            "If overdue: acknowledge the gap without judgment and focus on rebooking",
+            "Offer the next available hygiene slot that matches their preferred time",
+            "Update contact information and communication preferences",
+            "Set recall reminder for the next cycle before ending the call",
+        ],
+        escalateIf: [
+            "Patient reports a dental emergency or acute pain — immediately transfer to clinical team",
+            "Account has an outstanding balance that may block scheduling — check with billing",
+        ],
+        notes: [
+            "Never shame a patient for a long gap — it creates barriers to return",
+            "Patients who haven't been in over 2 years may need a new patient exam slot",
+        ],
+        confidence: "medium",
+        source: "Saige Knowledge Base",
+        sourceType: "global",
+    }),
 ];
 
 let responseIndex = 0;
-function getNextResponse() {
-    const response = FAKE_RESPONSES[responseIndex % FAKE_RESPONSES.length];
-    responseIndex++;
-    return response;
+// Plain conversational responses (Assist Mode OFF)
+const CHAT_RESPONSES = [
+    "Insurance coverage can vary a lot depending on the patient's plan. Generally speaking, most PPO plans cover preventive care (cleanings, exams, X-rays) at 80–100%, basic restorative at 70–80%, and major restorative at 50%. But every plan is different — always check the specific EOB or call the carrier to get accurate numbers before quoting a patient.",
+    "No-shows are one of the most frustrating parts of running a dental practice. The biggest factors are usually poor reminder systems, patients who feel disconnected from the practice, and no real consequence for missing. A consistent reminder cadence (email + text + call) combined with a posted cancellation policy tends to make the biggest difference over time.",
+    "For a PFM crown on a posterior tooth like #19, you'd typically use D2752 (porcelain fused to noble metal). Make sure to document the clinical reason for the crown and attach your periapical X-ray. Some carriers also want pre-op photos these days, so it's worth checking your specific plan guidelines.",
+    "A good recall system is really the heartbeat of a hygiene department. The key is making sure every patient is reappointed before they leave the chair — that alone can keep your hygiene schedule 80–90% full. For patients who slip through, a 3-step outreach (text, email, call) over a couple of weeks tends to work well.",
+];
+
+let chatIndex = 0;
+function getNextChatResponse() {
+    const r = CHAT_RESPONSES[chatIndex % CHAT_RESPONSES.length];
+    chatIndex++;
+    return r;
+}
+
+function getNextResponse(assistMode: boolean) {
+    if (assistMode) {
+        const response = FAKE_RESPONSES[responseIndex % FAKE_RESPONSES.length];
+        responseIndex++;
+        return response;
+    } else {
+        return getNextChatResponse();
+    }
 }
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -184,6 +295,7 @@ export default function AskPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [isStreaming, setIsStreaming] = useState(false);
     const [streamingText, setStreamingText] = useState("");
+    const [assistMode, setAssistMode] = useState(true);
     const bottomRef = useRef<HTMLDivElement>(null);
 
     const activeConversation = conversations.find((c) => c.id === activeId) ?? null;
@@ -234,11 +346,11 @@ export default function AskPage() {
 
             setIsStreaming(true);
             setStreamingText("");
-            const fullResponse = getNextResponse();
+            const fullResponse = getNextResponse(assistMode);
 
             let i = 0;
             const interval = setInterval(() => {
-                i += Math.floor(Math.random() * 4) + 2;
+                i += Math.floor(Math.random() * 12) + 18; // 18–30 chars per tick
                 setStreamingText(fullResponse.slice(0, i));
                 if (i >= fullResponse.length) {
                     clearInterval(interval);
@@ -258,9 +370,9 @@ export default function AskPage() {
                         )
                     );
                 }
-            }, 20);
+            }, 8); // tick every 8ms
         },
-        [activeId, isStreaming]
+        [activeId, isStreaming, assistMode]
     );
 
     const handlePromptClick = useCallback(
@@ -355,6 +467,13 @@ export default function AskPage() {
 
                     <div className="mx-3 h-px bg-zinc-100" />
 
+                    {/* Home nav */}
+                    <nav className="px-3 pt-2 pb-1">
+                        <NavItem icon={<Home className="size-4" />} label="Home" href="/" />
+                    </nav>
+
+                    <div className="mx-3 h-px bg-zinc-100" />
+
                     {/* New chat button */}
                     <div className="px-3 pb-3">
                         <button
@@ -436,16 +555,21 @@ export default function AskPage() {
                             </div>
                         )}
 
-                        <div className="ml-auto flex items-center gap-2">
-                            {/* Online badge */}
-                            <div className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-medium text-emerald-600">
-                                <div className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                Online
-                            </div>
-                            <button className="relative size-9 rounded-xl border border-zinc-200 bg-zinc-50 flex items-center justify-center text-zinc-400 hover:text-zinc-700 transition-colors">
-                                <Bell className="size-4" />
-                                <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-red-500" />
+                        <div className="ml-auto flex items-center gap-3">
+                            {/* Assist mode toggle */}
+                            <button
+                                onClick={() => setAssistMode((v) => !v)}
+                                className={cn(
+                                    "flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-semibold border transition-all duration-200",
+                                    assistMode
+                                        ? "text-white border-transparent shadow-sm"
+                                        : "text-zinc-500 border-zinc-200 bg-zinc-50 hover:border-zinc-300"
+                                )}
+                                style={assistMode ? { background: BRAND } : undefined}
+                            >
+                                {assistMode ? "Assist mode" : "Chat mode"}
                             </button>
+
                         </div>
                     </header>
 

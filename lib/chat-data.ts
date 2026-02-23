@@ -15,6 +15,8 @@ export interface Conversation {
     messages: Message[];
 }
 
+const S = (data: object) => `##SAIGE_STRUCTURED##${JSON.stringify(data)}`;
+
 export const SAMPLE_CONVERSATIONS: Conversation[] = [
     {
         id: "1",
@@ -31,29 +33,32 @@ export const SAMPLE_CONVERSATIONS: Conversation[] = [
             {
                 id: "m2",
                 role: "assistant",
-                content: `Great question! Here's a reliable insurance verification workflow for dental practices:
-
-**1. Verify 48–72 hours before the appointment**
-Don't wait until the day of. Call or use your carrier's online portal at least 2 days ahead to allow time to resolve any issues.
-
-**2. Confirm the key benefit details**
-- Plan type (PPO, HMO, Indemnity)
-- Annual maximum & remaining balance
-- Deductible (individual/family) & amount met
-- Preventive, basic, and major coverage percentages
-- Waiting periods for new patients
-- Missing tooth clause & frequency limitations
-
-**3. Check eligibility, not just coverage**
-A patient can have coverage but still be ineligible (e.g., not yet past their waiting period). Always verify both.
-
-**4. Document everything**
-Record the rep's name, call reference number, date/time, and what was confirmed. This protects you if there's a dispute later.
-
-**5. Communicate with the patient**
-Share a pre-visit benefit summary so patients understand their estimated out-of-pocket costs before sitting in the chair.
-
-Would you like a script your front office team can use when calling insurance companies?`,
+                content: S({
+                    sayThis: "I'm pulling up your benefits now. Based on what I can verify today, your estimated portion will be around $[X] — and I'll send you a written summary before you come in so there are no surprises.",
+                    doThis: [
+                        "Verify at least 48–72 hours before the appointment — not the day of",
+                        "Check: plan type (PPO/HMO/Indemnity), annual max, remaining balance, deductible status",
+                        "Confirm frequency limitations: cleanings, X-rays, crowns, perio",
+                        "Check for missing tooth clause if restorative treatment is planned",
+                        "Check for any waiting periods — especially for new patients",
+                        "Document rep name, reference number, date/time of verification call",
+                        "Send patient a pre-visit benefit summary with estimated out-of-pocket",
+                    ],
+                    escalateIf: [
+                        "Patient has two insurance plans — COB (coordination of benefits) must be handled by billing coordinator",
+                        "Insurance portal is down and hold time exceeds 20 minutes — flag to billing team, don't guess",
+                        "Plan type cannot be confirmed (HMO vs PPO) — do not quote patient portion until confirmed",
+                        "Coverage response contradicts what patient was told previously — escalate before confirming appointment",
+                    ],
+                    notes: [
+                        "Always frame estimates as 'estimated based on your plan' — never guarantee a dollar amount",
+                        "Eligibility ≠ coverage. Verify both — a patient can be eligible but still have a waiting period",
+                        "For new patients on HMOs, confirm the correct in-network provider assignment before scheduling",
+                    ],
+                    confidence: "high",
+                    source: "Insurance Verification SOP",
+                    sourceType: "local",
+                }),
                 timestamp: new Date(Date.now() - 1000 * 60 * 9),
             },
         ],
@@ -61,7 +66,7 @@ Would you like a script your front office team can use when calling insurance co
     {
         id: "2",
         title: "Reducing patient no-shows",
-        lastMessage: "How can we reduce our no-show rate?",
+        lastMessage: "Our no-show rate is around 15%. What are the most effective ways to bring that down?",
         timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
         messages: [
             {
@@ -73,25 +78,29 @@ Would you like a script your front office team can use when calling insurance co
             {
                 id: "m4",
                 role: "assistant",
-                content: `A 15% no-show rate is costly — here's a proven strategy to get it under 5%:
-
-**Short-term fixes (implement this week)**
-- **3-touch confirmation system:** Send an email 1 week out, a text 3 days out, and a call/text the morning before.
-- **Require credit card on file** for new patients. Charge a no-show fee ($25–$50) — this alone can cut no-shows significantly.
-
-**Medium-term systems**
-- Use automated reminders via your PMS (Dentrix, Eaglesoft, etc.)
-- Add a **"Confirm or Cancel" button** in reminder texts. Make it easy to cancel so you can backfill the slot.
-- Build a **short-notice cancellation list** of patients who want to come in last-minute.
-
-**Relationship-driven tactics**
-- Personalized calls from the doctor or hygienist for high-value appointments (crowns, implant consults)
-- For chronic no-show patients, require pre-payment for appointments
-
-**Track your data**
-Identify which appointment types, times of day, and patient demographics are highest-risk, then adjust your reminder cadence accordingly.
-
-What's your current reminder system? I can help you optimize it.`,
+                content: S({
+                    sayThis: "We're looking forward to seeing you tomorrow at [time] with [Provider]. If anything comes up, please give us at least 24 hours' notice — we have other patients we can help in that slot.",
+                    doThis: [
+                        "Implement a 3-touch confirmation: email 7 days out → text 48 hrs out → call or text morning before",
+                        "Add a 'Confirm or Cancel' button in reminder texts — make it easy to cancel so you can backfill the slot",
+                        "Build and maintain a same-day short-notice list of patients who want last-minute slots",
+                        "Require a credit card on file for new patients — charge a no-show fee ($25–$50) consistently",
+                        "For high-value appointments (implants, crowns), have the provider personally call to confirm",
+                        "Track which appointment types, times, and patient segments have the highest no-show rate",
+                    ],
+                    escalateIf: [
+                        "Patient is a chronic no-show (2+ times) — office manager should require pre-payment for next appointment",
+                        "A high-production appointment (e.g., full-arch case) cancels same-day — immediately notify provider and office manager",
+                    ],
+                    notes: [
+                        "A 15% no-show rate is costing your practice significant production — industry target is under 5%",
+                        "Cancellation fee policies must be communicated at scheduling AND in reminders, not just at the time of no-show",
+                        "Automated reminders alone reduce no-shows by 30–40%; combining with a short-notice list recovers most lost revenue",
+                    ],
+                    confidence: "high",
+                    source: "Saige Knowledge Base",
+                    sourceType: "global",
+                }),
                 timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2 + 30000),
             },
         ],
@@ -111,29 +120,31 @@ What's your current reminder system? I can help you optimize it.`,
             {
                 id: "m6",
                 role: "assistant",
-                content: `For a porcelain-fused-to-metal (PFM) crown on tooth #19 (a posterior molar), use:
-
-**D2752** — Crown, porcelain fused to noble metal
-
-> Tooth #19 is a molar, so you're billing for a posterior crown. Most carriers distinguish between anterior (front) and posterior (back) crowns, so make sure you're using the correct code.
-
-**Key documentation to support the claim:**
-- X-rays showing the condition that necessitated the crown (caries, fracture, failing restoration)
-- Narrative describing why a crown was the appropriate treatment
-- Pre-op and post-op photos (increasingly required)
-- Date of preparation and date of seat (some carriers require both)
-
-**Common denials to watch for:**
-- Missing tooth clause (if tooth was extracted before plan inception)
-- Frequency limitation (most plans cover crowns every 5–7 years)
-- Alternative benefit clause (carrier may pay for an amalgam instead)
-
-**Related codes you may also need:**
-- D0220/D0230 — Periapical X-rays (if taken as part of diagnosis)
-- D2950 — Core buildup (if applicable, document separately)
-- D9930 — Treatment of complications of previous crown (if a redo)
-
-Would you like help writing the narrative for this claim?`,
+                content: S({
+                    sayThis: "For your crown on tooth #19, we'll be billing D2752 — that's a porcelain-fused-to-noble-metal crown on a posterior tooth. I'll include your X-rays and a clinical narrative with the claim.",
+                    doThis: [
+                        "Use CDT code D2752 — Crown, porcelain fused to noble metal (tooth #19 is a posterior molar)",
+                        "Attach a current periapical X-ray clearly showing the reason for the crown (caries, fracture, failing restoration)",
+                        "Write a clinical narrative: patient presentation, diagnosis, and why a crown was necessary",
+                        "If a core buildup was done, bill D2950 separately with documentation",
+                        "Note both the preparation date and seat date — some carriers require both for reimbursement",
+                        "Include pre-op and post-op photos if your carrier is requiring them (increasingly common)",
+                        "Check frequency limitations — most plans cover crowns every 5–7 years per tooth",
+                    ],
+                    escalateIf: [
+                        "Carrier applies an alternative benefit clause (pays for amalgam instead of crown) — notify the patient before billing",
+                        "Missing tooth clause applies — the claim will likely be denied; escalate to billing coordinator for appeal",
+                        "This is a replacement crown within the frequency limit — prior authorization may be required",
+                    ],
+                    notes: [
+                        "D2752 = PFM on noble metal (common). D2750 = PFM on high-noble metal. D2751 = PFM on predominantly base metal. Use the correct sub-code — it affects reimbursement",
+                        "Tooth #19 is a posterior tooth — always use the posterior crown code, not anterior (D2740 series)",
+                        "If the crown also required a post and core, add D2952 or D2953 with supporting endo documentation",
+                    ],
+                    confidence: "high",
+                    source: "CDT Coding Reference",
+                    sourceType: "global",
+                }),
                 timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 + 60000),
             },
         ],
