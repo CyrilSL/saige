@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
     BookOpen,
     Play,
@@ -28,15 +28,14 @@ import {
     PlayCircle,
 } from "lucide-react";
 import {
-    COURSES,
     CATEGORIES,
-    STATS,
     Course,
     Module,
     Lesson,
 } from "@/lib/learn-data";
 import { cn } from "@/lib/utils";
 import { AppSidebar } from "@/components/app-sidebar";
+import { useRBAC } from "@/lib/rbac";
 
 const BRAND = "#3A63C2";
 const BRAND_LIGHT = "#eef2fb";
@@ -66,15 +65,6 @@ function typeIcon(type: Lesson["type"]) {
 }
 
 // ─── sub-components ───────────────────────────────────────────────────────────
-
-function StatCard({ label, value }: { label: string; value: string }) {
-    return (
-        <div className="flex flex-col items-center justify-center rounded-2xl bg-white border border-zinc-100 shadow-sm px-6 py-5 text-center min-w-[110px]">
-            <span className="text-2xl font-bold tracking-tight" style={{ color: BRAND }}>{value}</span>
-            <span className="text-xs text-zinc-500 mt-0.5 font-medium">{label}</span>
-        </div>
-    );
-}
 
 function CourseCard({
     course,
@@ -392,37 +382,79 @@ function CourseViewer({ course, onBack }: { course: Course; onBack: () => void }
 // ─── main page ────────────────────────────────────────────────────────────────
 
 export default function LearnPage() {
+    const { currentUser } = useRBAC();
+    const [dbCourses, setDbCourses] = useState<Course[]>([]);
+    const [loadingCourses, setLoadingCourses] = useState(true);
     const [activeCategory, setActiveCategory] = useState("all");
     const [searchQuery, setSearchQuery] = useState("");
     const [activeCourse, setActiveCourse] = useState<Course | null>(null);
     const [filterLevel, setFilterLevel] = useState<string>("all");
     const activeCourseId = activeCourse?.id ?? null;
 
+    useEffect(() => {
+        if (!currentUser) return;
+        setLoadingCourses(true);
+        fetch(`/api/learn/courses?role=${currentUser.role}`)
+            .then(r => r.json())
+            .then((data: any[]) => {
+                const mapped: Course[] = data.map(c => ({
+                    id: String(c.id),
+                    title: c.title,
+                    subtitle: c.subtitle ?? "",
+                    category: c.category ?? "front-office",
+                    level: (c.level as Course["level"]) ?? "Beginner",
+                    thumbnail: c.thumbnail ?? "📚",
+                    color: c.color ?? "#3A63C2",
+                    tags: (c.assignedRoles ?? "").split(",").map((r: string) => r.replace(/_/g, " ")).filter(Boolean),
+                    progress: 0,
+                    lessons: (c.modules ?? []).reduce((a: number, m: any) => a + (m.lessons?.length ?? 0), 0),
+                    enrolled: 0,
+                    rating: 0,
+                    duration: `${(c.modules ?? []).reduce((a: number, m: any) => a + (m.lessons?.length ?? 0), 0)} lessons`,
+                    instructor: "Riverside Dental",
+                    instructorTitle: "Practice Team",
+                    featured: false,
+                    new: false,
+                    modules: (c.modules ?? []).map((m: any) => ({
+                        id: String(m.id),
+                        title: m.title,
+                        description: m.description ?? "",
+                        lessons: (m.lessons ?? []).map((l: any) => ({
+                            id: String(l.id),
+                            title: l.title,
+                            type: (l.type ?? "video") as Lesson["type"],
+                            duration: l.duration ?? "5 min",
+                            completed: false,
+                            locked: false,
+                        })),
+                    })),
+                }));
+                setDbCourses(mapped);
+            })
+            .finally(() => setLoadingCourses(false));
+    }, [currentUser]);
+
     const filtered = useMemo(() => {
-        return COURSES.filter(c => {
+        return dbCourses.filter(c => {
             const matchCat = activeCategory === "all" || c.category === activeCategory;
             const matchSearch = searchQuery === "" ||
                 c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                c.subtitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                c.tags.some(t => t.toLowerCase().includes(searchQuery.toLowerCase()));
+                c.subtitle.toLowerCase().includes(searchQuery.toLowerCase());
             const matchLevel = filterLevel === "all" || c.level === filterLevel;
             return matchCat && matchSearch && matchLevel;
         });
-    }, [activeCategory, searchQuery, filterLevel]);
+    }, [dbCourses, activeCategory, searchQuery, filterLevel]);
 
-    const inProgress = COURSES.filter(c => c.progress > 0 && c.progress < 100);
-    const completed = COURSES.filter(c => c.progress === 100);
+    const inProgress = dbCourses.filter(c => c.progress > 0 && c.progress < 100);
+    const completed = dbCourses.filter(c => c.progress === 100);
 
     return (
         <div className="flex h-screen w-full overflow-hidden bg-[#F8F9FC]">
-            {/* ── Left sidebar ── */}
             <AppSidebar>
-                {/* Categories */}
                 <nav className="flex-1 px-3 py-3 space-y-0.5">
                     <div className="pb-1 px-2">
                         <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-300">Categories</p>
                     </div>
-
                     {CATEGORIES.filter(c => c.id !== "all").map(cat => (
                         <button
                             key={cat.id}
@@ -442,9 +474,7 @@ export default function LearnPage() {
                 </nav>
             </AppSidebar>
 
-            {/* ── Main area ── */}
             <main className="flex flex-1 flex-col overflow-hidden">
-                {/* Top bar */}
                 <header className="flex shrink-0 items-center gap-4 border-b border-zinc-100 bg-white px-6 h-14">
                     <div className="relative flex-1 max-w-md">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-zinc-400" />
@@ -456,9 +486,7 @@ export default function LearnPage() {
                             style={{ "--tw-ring-color": BRAND } as React.CSSProperties}
                         />
                     </div>
-
                     <div className="ml-auto flex items-center gap-2">
-                        {/* Level filter */}
                         <div className="relative">
                             <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-zinc-400" />
                             <select
@@ -473,7 +501,6 @@ export default function LearnPage() {
                                 <option value="Advanced">Advanced</option>
                             </select>
                         </div>
-
                         <button className="relative size-9 rounded-xl border border-zinc-200 bg-zinc-50 flex items-center justify-center text-zinc-400 hover:text-zinc-700 transition-colors">
                             <Bell className="size-4" />
                             <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-red-500" />
@@ -481,37 +508,31 @@ export default function LearnPage() {
                     </div>
                 </header>
 
-                {/* Content area */}
                 {activeCourse ? (
                     <CourseViewer course={activeCourse} onBack={() => setActiveCourse(null)} />
                 ) : (
                     <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
-
                         {/* Hero banner */}
                         <div
                             className="rounded-2xl p-6 flex items-center justify-between relative overflow-hidden"
                             style={{ background: `linear-gradient(135deg, ${BRAND} 0%, #2d4fa0 100%)` }}
                         >
-                            <div
-                                className="absolute inset-0 opacity-10"
-                                style={{ backgroundImage: "radial-gradient(circle at 80% 50%, white 0%, transparent 60%)" }}
-                            />
+                            <div className="absolute inset-0 opacity-10"
+                                style={{ backgroundImage: "radial-gradient(circle at 80% 50%, white 0%, transparent 60%)" }} />
                             <div className="relative z-10 space-y-2 max-w-lg">
                                 <p className="text-white/70 text-[12px] font-medium uppercase tracking-widest">Dental Learning Hub</p>
-                                <h1 className="text-white text-2xl font-bold leading-snug">
-                                    Elevate Your Dental Practice Skills
-                                </h1>
-                                <p className="text-white/75 text-[13px] leading-relaxed">
-                                    Expert-led courses on front office operations, billing, clinical excellence, and practice management. Learn at your own pace.
-                                </p>
+                                <h1 className="text-white text-2xl font-bold leading-snug">Elevate Your Practice Skills</h1>
+                                <p className="text-white/75 text-[13px] leading-relaxed">Courses assigned to your role. Learn at your own pace.</p>
                                 <div className="flex gap-3 pt-2">
-                                    <button
-                                        className="bg-white text-[13px] font-semibold rounded-xl px-4 py-2 transition-opacity hover:opacity-90 flex items-center gap-1.5"
-                                        style={{ color: BRAND }}
-                                        onClick={() => setActiveCourse(COURSES[0])}
-                                    >
-                                        <Play className="size-3.5" /> Continue Learning
-                                    </button>
+                                    {dbCourses[0] && (
+                                        <button
+                                            className="bg-white text-[13px] font-semibold rounded-xl px-4 py-2 transition-opacity hover:opacity-90 flex items-center gap-1.5"
+                                            style={{ color: BRAND }}
+                                            onClick={() => setActiveCourse(dbCourses[0])}
+                                        >
+                                            <Play className="size-3.5" /> Start Learning
+                                        </button>
+                                    )}
                                     <button
                                         className="border border-white/40 text-white text-[13px] font-medium rounded-xl px-4 py-2 hover:bg-white/10 transition-colors"
                                         onClick={() => setActiveCategory("all")}
@@ -520,37 +541,24 @@ export default function LearnPage() {
                                     </button>
                                 </div>
                             </div>
-                            <div className="relative z-10 hidden lg:flex gap-3">
-                                {STATS.map(s => (
-                                    <div key={s.label} className="flex flex-col items-center justify-center bg-white/15 rounded-xl px-5 py-4 min-w-[90px] backdrop-blur-sm">
-                                        <span className="text-white text-xl font-bold">{s.value}</span>
-                                        <span className="text-white/70 text-[10px] font-medium mt-0.5">{s.label}</span>
-                                    </div>
-                                ))}
+                            <div className="relative z-10 hidden lg:flex flex-col items-center gap-1">
+                                <span className="text-white text-3xl font-bold">{dbCourses.length}</span>
+                                <span className="text-white/70 text-[11px]">Courses for you</span>
                             </div>
                         </div>
 
                         {/* Continue learning */}
                         {inProgress.length > 0 && (
                             <section>
-                                <div className="flex items-center justify-between mb-4">
-                                    <h2 className="text-[15px] font-bold text-zinc-900">Continue Learning</h2>
-                                    <button className="text-[12px] font-medium hover:underline" style={{ color: BRAND }}>See all</button>
-                                </div>
+                                <h2 className="text-[15px] font-bold text-zinc-900 mb-4">Continue Learning</h2>
                                 <div className="flex gap-4 overflow-x-auto pb-1">
                                     {inProgress.map(c => (
-                                        <div
-                                            key={c.id}
-                                            className="flex gap-4 items-center rounded-2xl border border-zinc-100 bg-white p-4 cursor-pointer hover:shadow-md hover:border-zinc-200 transition-all duration-200 min-w-[340px]"
-                                            onClick={() => setActiveCourse(c)}
-                                        >
-                                            <div className="size-14 rounded-xl flex items-center justify-center text-3xl shrink-0"
-                                                style={{ background: `${c.color}12` }}>
-                                                {c.thumbnail}
-                                            </div>
+                                        <div key={c.id}
+                                            className="flex gap-4 items-center rounded-2xl border border-zinc-100 bg-white p-4 cursor-pointer hover:shadow-md transition-all min-w-[340px]"
+                                            onClick={() => setActiveCourse(c)}>
+                                            <div className="size-14 rounded-xl flex items-center justify-center text-3xl shrink-0" style={{ background: `${c.color}12` }}>{c.thumbnail}</div>
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-[13px] font-semibold text-zinc-800 truncate">{c.title}</p>
-                                                <p className="text-[11px] text-zinc-400 mt-0.5">{c.instructor}</p>
                                                 <div className="mt-2">
                                                     <div className="flex justify-between mb-1">
                                                         <span className="text-[10px] text-zinc-400">Progress</span>
@@ -568,7 +576,7 @@ export default function LearnPage() {
                             </section>
                         )}
 
-                        {/* Category tabs */}
+                        {/* Course grid */}
                         <section>
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="text-[15px] font-bold text-zinc-900">
@@ -577,44 +585,39 @@ export default function LearnPage() {
                                 </h2>
                             </div>
 
-                            {/* Horizontal tabs */}
                             <div className="flex gap-2 overflow-x-auto pb-1 mb-5 no-scrollbar">
                                 {CATEGORIES.map(cat => (
-                                    <button
-                                        key={cat.id}
+                                    <button key={cat.id}
                                         onClick={() => { setActiveCategory(cat.id); setActiveCourse(null); }}
                                         className={cn(
-                                            "flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[12px] font-medium whitespace-nowrap transition-all duration-150 shrink-0 border",
-                                            activeCategory === cat.id
-                                                ? "text-white border-transparent shadow-sm"
-                                                : "text-zinc-500 border-zinc-200 bg-white hover:border-zinc-300 hover:text-zinc-800"
+                                            "flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[12px] font-medium whitespace-nowrap transition-all shrink-0 border",
+                                            activeCategory === cat.id ? "text-white border-transparent" : "text-zinc-500 border-zinc-200 bg-white hover:border-zinc-300"
                                         )}
                                         style={activeCategory === cat.id ? { background: BRAND } : undefined}
                                     >
-                                        <span>{cat.icon}</span>
-                                        {cat.label}
+                                        <span>{cat.icon}</span>{cat.label}
                                     </button>
                                 ))}
                             </div>
 
-                            {/* Course grid */}
-                            {filtered.length === 0 ? (
+                            {loadingCourses ? (
+                                <div className="flex items-center justify-center py-20">
+                                    <div className="size-8 rounded-full border-2 border-zinc-200 border-t-[#3A63C2] animate-spin" />
+                                </div>
+                            ) : filtered.length === 0 ? (
                                 <div className="flex flex-col items-center justify-center py-20 text-center gap-3">
                                     <BookOpen className="size-10 text-zinc-200" />
-                                    <p className="text-zinc-400 font-medium">No courses match your search</p>
-                                    <button onClick={() => { setSearchQuery(""); setActiveCategory("all"); setFilterLevel("all"); }} className="text-[13px] font-medium hover:underline" style={{ color: BRAND }}>
+                                    <p className="text-zinc-500 font-medium">No courses assigned to your role yet</p>
+                                    <p className="text-[12px] text-zinc-400">Ask your manager to assign courses to your role.</p>
+                                    <button onClick={() => { setSearchQuery(""); setActiveCategory("all"); setFilterLevel("all"); }}
+                                        className="text-[13px] font-medium hover:underline" style={{ color: BRAND }}>
                                         Clear filters
                                     </button>
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                                     {filtered.map(course => (
-                                        <CourseCard
-                                            key={course.id}
-                                            course={course}
-                                            onOpen={setActiveCourse}
-                                            active={activeCourseId === course.id}
-                                        />
+                                        <CourseCard key={course.id} course={course} onOpen={setActiveCourse} active={activeCourseId === course.id} />
                                     ))}
                                 </div>
                             )}
@@ -628,12 +631,7 @@ export default function LearnPage() {
                                 </h2>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                                     {completed.map(course => (
-                                        <CourseCard
-                                            key={course.id}
-                                            course={course}
-                                            onOpen={setActiveCourse}
-                                            active={activeCourseId === course.id}
-                                        />
+                                        <CourseCard key={course.id} course={course} onOpen={setActiveCourse} active={activeCourseId === course.id} />
                                     ))}
                                 </div>
                             </section>
@@ -642,46 +640,5 @@ export default function LearnPage() {
                 )}
             </main>
         </div>
-    );
-}
-
-// ─── tiny nav item ────────────────────────────────────────────────────────────
-
-function NavItem({
-    icon,
-    label,
-    href,
-    active,
-    badge,
-    badgeColor,
-}: {
-    icon: React.ReactNode;
-    label: string;
-    href: string;
-    active?: boolean;
-    badge?: number;
-    badgeColor?: string;
-}) {
-    return (
-        <a
-            href={href}
-            className={cn(
-                "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors",
-                active
-                    ? "font-semibold text-[#3A63C2] bg-[#eef2fb]"
-                    : "text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50 font-medium"
-            )}
-        >
-            {icon}
-            <span className="flex-1">{label}</span>
-            {badge !== undefined && badge > 0 && (
-                <span
-                    className="text-[10px] font-bold rounded-full px-1.5 py-0.5 text-white min-w-[18px] text-center"
-                    style={{ background: badgeColor ?? BRAND }}
-                >
-                    {badge}
-                </span>
-            )}
-        </a>
     );
 }

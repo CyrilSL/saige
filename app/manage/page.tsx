@@ -7,7 +7,7 @@ import {
     Upload, X, GraduationCap, UserPlus, Globe, Lock, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CATEGORIES, ROLES, CourseLevel, UserRole } from "@/lib/manage-data";
+import { CATEGORIES } from "@/lib/manage-data";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useRBAC } from "@/lib/rbac";
 
@@ -95,40 +95,88 @@ function Spinner() {
     );
 }
 
-// ─── Courses Tab ──────────────────────────────────────────────────────────────
+// ─── Shared predefined roles (db enum values) ───────────────────────────────
+const PREDEFINED_ROLES = [
+    { label: "Front Desk", value: "front_desk" },
+    { label: "Insurance & Billing", value: "insurance_billing" },
+    { label: "Assistant", value: "assistant" },
+    { label: "Hygiene", value: "hygiene" },
+];
 
-function CreateCourseModal({ onClose, onSave }: { onClose: () => void; onSave: (c: DBCourse) => void }) {
-    const [title, setTitle] = useState("");
-    const [subtitle, setSubtitle] = useState("");
-    const [category, setCategory] = useState("front-office");
-    const [level, setLevel] = useState<CourseLevel>("Beginner");
-    const [roles, setRoles] = useState<UserRole[]>([]);
-    const [status, setStatus] = useState<"draft" | "published">("draft");
-    const [thumbnail, setThumbnail] = useState("📚");
+// ─── Unified course modal (create + edit) ─────────────────────────────────────
+
+function CourseModal({
+    courseToEdit, onClose, onSave,
+}: {
+    courseToEdit?: DBCourse;
+    onClose: () => void;
+    onSave: (c: DBCourse) => void;
+}) {
+    const isEdit = !!courseToEdit;
+
+    const [title, setTitle] = useState(courseToEdit?.title ?? "");
+    const [subtitle, setSubtitle] = useState(courseToEdit?.subtitle ?? "");
+    const [category, setCategory] = useState(courseToEdit?.category ?? "front-office");
+    const [roles, setRoles] = useState<string[]>(
+        courseToEdit?.assignedRoles
+            ? courseToEdit.assignedRoles.split(",").map(r => r.trim()).filter(Boolean)
+            : []
+    );
+    const [customRoleInput, setCustomRoleInput] = useState("");
+    const [status, setStatus] = useState<"draft" | "published">(
+        (courseToEdit?.status as any) ?? "draft"
+    );
+    const [thumbnail, setThumbnail] = useState(courseToEdit?.thumbnail ?? "📚");
     const [saving, setSaving] = useState(false);
     const emojis = ["📚", "🗂️", "🧾", "💬", "🦷", "🪥", "📊", "🛡️", "🔬", "💡", "🎯", "📋"];
     const selectedCat = CATEGORIES.find(c => c.id === category);
 
-    function toggleRole(r: UserRole) {
-        setRoles(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]);
+    function toggleRole(value: string) {
+        setRoles(prev => prev.includes(value) ? prev.filter(x => x !== value) : [...prev, value]);
+    }
+
+    function addCustomRole() {
+        const v = customRoleInput.trim().toLowerCase().replace(/\s+/g, "_");
+        if (!v || roles.includes(v)) { setCustomRoleInput(""); return; }
+        setRoles(prev => [...prev, v]);
+        setCustomRoleInput("");
     }
 
     async function handleSave() {
         if (!title.trim()) return;
         setSaving(true);
         try {
-            const res = await fetch("/api/manage/courses", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    title: title.trim(), subtitle: subtitle.trim(), category, level,
-                    status, thumbnail, color: selectedCat?.color ?? BRAND,
-                    assignedRoles: roles.map(r => r.toLowerCase().replace(/ & /g, "_").replace(/ /g, "_")),
-                }),
-            });
-            if (!res.ok) throw new Error("Failed");
-            const created: DBCourse = await res.json();
-            onSave({ ...created, modules: [] });
+            const payload = {
+                title: title.trim(),
+                subtitle: subtitle.trim(),
+                category,
+                status,
+                thumbnail,
+                color: selectedCat?.color ?? BRAND,
+                assignedRoles: roles,
+            };
+
+            let result: DBCourse;
+            if (isEdit && courseToEdit) {
+                const res = await fetch(`/api/manage/courses/${courseToEdit.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+                if (!res.ok) throw new Error("Failed to update");
+                const updated = await res.json();
+                result = { ...courseToEdit, ...updated };
+            } else {
+                const res = await fetch("/api/manage/courses", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+                if (!res.ok) throw new Error("Failed to create");
+                result = await res.json();
+            }
+
+            onSave(result);
             onClose();
         } finally {
             setSaving(false);
@@ -139,17 +187,18 @@ function CreateCourseModal({ onClose, onSave }: { onClose: () => void; onSave: (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
-                    <p className="text-[15px] font-bold text-zinc-900">Create New Course</p>
+                    <p className="text-[15px] font-bold text-zinc-900">{isEdit ? "Edit Course" : "Create New Course"}</p>
                     <button onClick={onClose} className="size-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"><X className="size-4" /></button>
                 </div>
-                <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+                <div className="px-5 py-4 space-y-4 max-h-[72vh] overflow-y-auto">
                     {/* Thumbnail */}
                     <div>
                         <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-2 block">Thumbnail</label>
                         <div className="flex flex-wrap gap-2">
                             {emojis.map(e => (
                                 <button key={e} onClick={() => setThumbnail(e)}
-                                    className={cn("size-9 rounded-xl text-xl flex items-center justify-center transition-all", thumbnail === e ? "ring-2 scale-110" : "bg-zinc-50 hover:bg-zinc-100")}
+                                    className={cn("size-9 rounded-xl text-xl flex items-center justify-center transition-all",
+                                        thumbnail === e ? "ring-2 scale-110" : "bg-zinc-50 hover:bg-zinc-100")}
                                     style={thumbnail === e ? { background: `${selectedCat?.color ?? BRAND}15`, outlineColor: selectedCat?.color ?? BRAND } : undefined}
                                 >{e}</button>
                             ))}
@@ -169,34 +218,55 @@ function CreateCourseModal({ onClose, onSave }: { onClose: () => void; onSave: (
                             className="w-full px-3 py-2 text-[13px] rounded-xl border border-zinc-200 bg-zinc-50 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all resize-none"
                             style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
                     </div>
-                    {/* Category + Level */}
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-1.5 block">Category</label>
-                            <select value={category} onChange={e => setCategory(e.target.value)}
-                                className="w-full h-9 px-3 text-[13px] rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-700 focus:outline-none focus:ring-2 appearance-none cursor-pointer transition-all"
-                                style={{ "--tw-ring-color": BRAND } as React.CSSProperties}>
-                                {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-1.5 block">Level</label>
-                            <select value={level} onChange={e => setLevel(e.target.value as CourseLevel)}
-                                className="w-full h-9 px-3 text-[13px] rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-700 focus:outline-none focus:ring-2 appearance-none cursor-pointer transition-all"
-                                style={{ "--tw-ring-color": BRAND } as React.CSSProperties}>
-                                {["Beginner", "Intermediate", "Advanced"].map(l => <option key={l}>{l}</option>)}
-                            </select>
-                        </div>
+                    {/* Category */}
+                    <div>
+                        <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-1.5 block">Category</label>
+                        <select value={category} onChange={e => setCategory(e.target.value)}
+                            className="w-full h-9 px-3 text-[13px] rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-700 focus:outline-none focus:ring-2 appearance-none cursor-pointer transition-all"
+                            style={{ "--tw-ring-color": BRAND } as React.CSSProperties}>
+                            {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                        </select>
                     </div>
-                    {/* Roles */}
+                    {/* Assign to Roles */}
                     <div>
                         <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-2 block">Assign to Roles</label>
-                        <div className="flex flex-wrap gap-2">
-                            {ROLES.map(r => (
+                        <div className="flex flex-wrap gap-2 mb-2">
+                            {PREDEFINED_ROLES.map(r => {
+                                const active = roles.includes(r.value);
+                                return (
+                                    <button key={r.value} onClick={() => toggleRole(r.value)}
+                                        className={cn("text-[12px] font-medium rounded-xl px-3 py-1.5 border transition-all",
+                                            active ? "border-transparent text-white" : "border-zinc-200 text-zinc-600 hover:border-zinc-300")}
+                                        style={active ? { background: BRAND } : undefined}>
+                                        {r.label}
+                                    </button>
+                                );
+                            })}
+                            {/* Custom roles already added */}
+                            {roles.filter(r => !PREDEFINED_ROLES.map(p => p.value).includes(r)).map(r => (
                                 <button key={r} onClick={() => toggleRole(r)}
-                                    className={cn("text-[12px] font-medium rounded-xl px-3 py-1.5 border transition-all", roles.includes(r) ? "border-transparent text-white" : "border-zinc-200 text-zinc-600 hover:border-zinc-300")}
-                                    style={roles.includes(r) ? { background: BRAND } : undefined}>{r}</button>
+                                    className="text-[12px] font-medium rounded-xl px-3 py-1.5 border-transparent text-white transition-all flex items-center gap-1"
+                                    style={{ background: "#7C3AED" }}>
+                                    {r.replace(/_/g, " ")}
+                                    <X className="size-3" />
+                                </button>
                             ))}
+                        </div>
+                        {/* Add custom role */}
+                        <div className="flex gap-2">
+                            <input
+                                value={customRoleInput}
+                                onChange={e => setCustomRoleInput(e.target.value)}
+                                onKeyDown={e => e.key === "Enter" && addCustomRole()}
+                                placeholder="Add custom role… (press Enter)"
+                                className="flex-1 h-8 px-3 text-[12px] rounded-xl border border-zinc-200 bg-zinc-50 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                                style={{ "--tw-ring-color": BRAND } as React.CSSProperties}
+                            />
+                            <button onClick={addCustomRole}
+                                className="h-8 px-3 text-[12px] font-semibold text-white rounded-xl hover:opacity-90 transition-opacity"
+                                style={{ background: BRAND }}>
+                                <Plus className="size-3.5" />
+                            </button>
                         </div>
                     </div>
                     {/* Status */}
@@ -205,7 +275,8 @@ function CreateCourseModal({ onClose, onSave }: { onClose: () => void; onSave: (
                         <div className="flex gap-2">
                             {(["draft", "published"] as const).map(s => (
                                 <button key={s} onClick={() => setStatus(s)}
-                                    className={cn("flex-1 rounded-xl py-2 text-[12px] font-semibold border capitalize transition-all", status === s ? "border-transparent text-white" : "border-zinc-200 text-zinc-500 hover:border-zinc-300")}
+                                    className={cn("flex-1 rounded-xl py-2 text-[12px] font-semibold border capitalize transition-all",
+                                        status === s ? "border-transparent text-white" : "border-zinc-200 text-zinc-500 hover:border-zinc-300")}
                                     style={status === s ? { background: s === "published" ? "#059669" : "#B45309" } : undefined}>{s}</button>
                             ))}
                         </div>
@@ -217,7 +288,7 @@ function CreateCourseModal({ onClose, onSave }: { onClose: () => void; onSave: (
                         className="px-4 py-2 text-[13px] font-semibold text-white rounded-xl transition-opacity hover:opacity-90 disabled:opacity-40 flex items-center gap-1.5"
                         style={{ background: BRAND }}>
                         {saving && <Loader2 className="size-3.5 animate-spin" />}
-                        Create Course
+                        {isEdit ? "Save Changes" : "Create Course"}
                     </button>
                 </div>
             </div>
@@ -225,10 +296,13 @@ function CreateCourseModal({ onClose, onSave }: { onClose: () => void; onSave: (
     );
 }
 
+// ─── Courses Tab ──────────────────────────────────────────────────────────────
+
 function CoursesTab() {
     const [courses, setCourses] = useState<DBCourse[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreate, setShowCreate] = useState(false);
+    const [editingCourse, setEditingCourse] = useState<DBCourse | null>(null);
     const [search, setSearch] = useState("");
 
     const load = useCallback(async () => {
@@ -244,11 +318,29 @@ function CoursesTab() {
 
     useEffect(() => { load(); }, [load]);
 
+    async function handleDelete(id: number) {
+        if (!confirm("Delete this course? This cannot be undone.")) return;
+        await fetch(`/api/manage/courses/${id}`, { method: "DELETE" });
+        setCourses(prev => prev.filter(c => c.id !== id));
+    }
+
     const filtered = courses.filter(c => c.title.toLowerCase().includes(search.toLowerCase()));
 
     return (
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
-            {showCreate && <CreateCourseModal onClose={() => setShowCreate(false)} onSave={c => setCourses(prev => [c, ...prev])} />}
+            {showCreate && (
+                <CourseModal
+                    onClose={() => setShowCreate(false)}
+                    onSave={c => { setCourses(prev => [c, ...prev]); }}
+                />
+            )}
+            {editingCourse && (
+                <CourseModal
+                    courseToEdit={editingCourse}
+                    onClose={() => setEditingCourse(null)}
+                    onSave={updated => setCourses(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c))}
+                />
+            )}
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-[20px] font-bold tracking-tight text-zinc-900">Courses</h1>
@@ -295,6 +387,14 @@ function CoursesTab() {
                                 <p className="text-[13px] font-semibold text-zinc-800 truncate">{c.title}</p>
                                 <p className="text-[11px] text-zinc-400 truncate">{c.subtitle}</p>
                             </div>
+                            {/* Assigned roles pills */}
+                            <div className="hidden md:flex items-center gap-1 flex-wrap max-w-[150px]">
+                                {(c.assignedRoles ?? "").split(",").filter(Boolean).map(r => (
+                                    <span key={r} className="text-[10px] font-medium rounded-full px-2 py-0.5 bg-[#eef2fb] text-[#3A63C2]">
+                                        {r.replace(/_/g, " ")}
+                                    </span>
+                                ))}
+                            </div>
                             <div className="hidden sm:flex items-center gap-3 text-[11px] text-zinc-400">
                                 <span className="flex items-center gap-1"><BookOpen className="size-3" />{c.modules.length} modules</span>
                                 <span className="flex items-center gap-1"><FileText className="size-3" />
@@ -303,10 +403,14 @@ function CoursesTab() {
                             </div>
                             <StatusBadge status={c.status} />
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button className="size-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
+                                <button
+                                    onClick={() => setEditingCourse(c)}
+                                    className="size-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
                                     <Edit3 className="size-3.5" />
                                 </button>
-                                <button className="size-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                                <button
+                                    onClick={() => handleDelete(c.id)}
+                                    className="size-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors">
                                     <Trash2 className="size-3.5" />
                                 </button>
                             </div>
@@ -323,7 +427,7 @@ function CoursesTab() {
 function InviteModal({ onClose, onSave }: { onClose: () => void; onSave: (u: DBUser) => void }) {
     const [email, setEmail] = useState("");
     const [name, setName] = useState("");
-    const [role, setRole] = useState<UserRole>("Front Desk");
+    const [role, setRole] = useState(PREDEFINED_ROLES[0].value);
     const [saving, setSaving] = useState(false);
 
     async function handleInvite() {
@@ -366,10 +470,10 @@ function InviteModal({ onClose, onSave }: { onClose: () => void; onSave: (u: DBU
                     </div>
                     <div>
                         <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-1.5 block">Role</label>
-                        <select value={role} onChange={e => setRole(e.target.value as UserRole)}
+                        <select value={role} onChange={e => setRole(e.target.value)}
                             className="w-full h-9 px-3 text-[13px] rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-700 focus:outline-none focus:ring-2 appearance-none cursor-pointer transition-all"
                             style={{ "--tw-ring-color": BRAND } as React.CSSProperties}>
-                            {ROLES.map(r => <option key={r}>{r}</option>)}
+                            {PREDEFINED_ROLES.map(r => <option key={r.value} value={r.label}>{r.label}</option>)}
                         </select>
                     </div>
                 </div>
