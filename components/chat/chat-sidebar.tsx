@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
     Tooltip,
@@ -76,6 +75,9 @@ function groupConversations(conversations: Conversation[]) {
 
     return { today, yesterday, thisWeek, older };
 }
+
+const BRAND = "#3A63C2";
+const BRAND_LIGHT = "#eef2fb";
 
 export function ChatSidebar({
     conversations,
@@ -170,13 +172,17 @@ export function ChatSidebar({
             {/* Header */}
             <div className="flex items-center gap-2 px-3 py-4">
                 <div className="flex items-center gap-2 flex-1">
-                    <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 shadow-sm">
+                    <div
+                        className="flex size-7 items-center justify-center rounded-lg shadow-sm"
+                        style={{ background: BRAND }}
+                    >
                         <Sparkles className="size-3.5 text-white" />
                     </div>
                     <span className="text-sm font-semibold tracking-tight text-zinc-900">Saige</span>
                     <Badge
                         variant="secondary"
-                        className="ml-auto text-[10px] px-1.5 py-0 h-4 font-medium bg-violet-50 text-violet-600 border-0"
+                        className="ml-auto text-[10px] px-1.5 py-0 h-4 font-medium border-0"
+                        style={{ background: BRAND_LIGHT, color: BRAND }}
                     >
                         Beta
                     </Badge>
@@ -200,8 +206,9 @@ export function ChatSidebar({
             <div className="px-3 pb-3">
                 <Button
                     onClick={onNewChat}
-                    className="w-full justify-start gap-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium shadow-sm shadow-violet-200"
+                    className="w-full justify-start gap-2 rounded-xl text-white font-medium shadow-sm"
                     size="sm"
+                    style={{ background: BRAND }}
                 >
                     <MessageSquarePlus className="size-4" />
                     New chat
@@ -216,7 +223,8 @@ export function ChatSidebar({
                         placeholder="Search chats..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="h-8 pl-8 text-sm bg-white border-zinc-200 rounded-lg placeholder:text-zinc-400 focus-visible:ring-1 focus-visible:ring-violet-300 focus-visible:border-violet-300"
+                        className="h-8 pl-8 text-sm bg-white border-zinc-200 rounded-lg placeholder:text-zinc-400 focus-visible:ring-1"
+                        style={{ "--tw-ring-color": BRAND } as React.CSSProperties}
                     />
                 </div>
             </div>
@@ -257,8 +265,11 @@ export function ChatSidebar({
                 >
                     <Settings className="size-4" />
                 </Button>
-                <div className="ml-auto flex items-center gap-2">
-                    <div className="flex size-7 items-center justify-center rounded-full bg-gradient-to-br from-violet-400 to-indigo-500 text-[11px] font-bold text-white shadow-sm">
+                <div className="ml-auto">
+                    <div
+                        className="flex size-7 items-center justify-center rounded-full text-[11px] font-bold text-white shadow-sm"
+                        style={{ background: BRAND }}
+                    >
                         U
                     </div>
                 </div>
@@ -276,6 +287,9 @@ function ConversationItem({
     isActive: boolean;
     onSelect: () => void;
 }) {
+    const BRAND = "#3A63C2";
+    const BRAND_LIGHT = "#eef2fb";
+
     return (
         <div
             className={cn(
@@ -286,8 +300,17 @@ function ConversationItem({
             )}
             onClick={onSelect}
         >
+            {isActive && (
+                <div
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-full"
+                    style={{ background: BRAND }}
+                />
+            )}
             <div className="flex-1 min-w-0">
-                <p className={cn("truncate text-[13px] font-medium leading-5", isActive && "text-zinc-900")}>
+                <p
+                    className="truncate text-[13px] font-medium leading-5"
+                    style={isActive ? { color: BRAND } : undefined}
+                >
                     {conv.title}
                 </p>
                 <p className="truncate text-[11px] text-zinc-400 mt-0.5">

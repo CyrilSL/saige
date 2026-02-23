@@ -19,6 +19,9 @@ import { Message } from "@/lib/chat-data";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
+const BRAND = "#3A63C2";
+const BRAND_LIGHT = "#eef2fb";
+
 interface ChatMessageProps {
     message: Message;
     isLast?: boolean;
@@ -107,29 +110,17 @@ function renderTextWithFormatting(text: string) {
         let m: RegExpExecArray | null;
         boldRegex.lastIndex = 0;
         while ((m = boldRegex.exec(line)) !== null) {
-            allMatches.push({
-                index: m.index,
-                end: m.index + m[0].length,
-                type: "bold",
-                content: m[1],
-            });
+            allMatches.push({ index: m.index, end: m.index + m[0].length, type: "bold", content: m[1] });
         }
         inlineCodeRegex.lastIndex = 0;
         while ((m = inlineCodeRegex.exec(line)) !== null) {
-            allMatches.push({
-                index: m.index,
-                end: m.index + m[0].length,
-                type: "code",
-                content: m[1],
-            });
+            allMatches.push({ index: m.index, end: m.index + m[0].length, type: "code", content: m[1] });
         }
         allMatches.sort((a, b) => a.index - b.index);
 
         allMatches.forEach((match, i) => {
             if (match.index > lastIdx) {
-                segments.push(
-                    <span key={`t-${lineIdx}-${i}`}>{line.slice(lastIdx, match.index)}</span>
-                );
+                segments.push(<span key={`t-${lineIdx}-${i}`}>{line.slice(lastIdx, match.index)}</span>);
             }
             if (match.type === "bold") {
                 segments.push(
@@ -187,15 +178,15 @@ export function ChatMessage({ message, isLast }: ChatMessageProps) {
         return (
             <div className="flex justify-end px-4 py-3 group">
                 <div className="max-w-[75%]">
-                    <div className="rounded-2xl rounded-tr-sm bg-violet-600 text-white px-4 py-3 text-[14px] leading-relaxed shadow-sm shadow-violet-100">
+                    <div
+                        className="rounded-2xl rounded-tr-sm text-white px-4 py-3 text-[14px] leading-relaxed"
+                        style={{ background: BRAND, boxShadow: "0 1px 3px rgba(58,99,194,0.2)" }}
+                    >
                         {message.content}
                     </div>
                     <div className="mt-1 flex justify-end">
                         <span className="text-[11px] text-zinc-400">
-                            {message.timestamp.toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                            })}
+                            {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </span>
                     </div>
                 </div>
@@ -207,7 +198,10 @@ export function ChatMessage({ message, isLast }: ChatMessageProps) {
         <div className="flex gap-3 px-4 py-3 group">
             {/* AI Avatar */}
             <div className="shrink-0 mt-0.5">
-                <div className="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 shadow-sm">
+                <div
+                    className="flex size-8 items-center justify-center rounded-full shadow-sm"
+                    style={{ background: BRAND }}
+                >
                     <Sparkles className="size-3.5 text-white" />
                 </div>
             </div>
@@ -217,15 +211,13 @@ export function ChatMessage({ message, isLast }: ChatMessageProps) {
                     <span className="text-[13px] font-semibold text-zinc-900">Saige</span>
                     <Badge
                         variant="secondary"
-                        className="text-[9px] px-1.5 py-0 h-3.5 font-medium bg-violet-50 text-violet-600 border-0"
+                        className="text-[9px] px-1.5 py-0 h-3.5 font-medium border-0"
+                        style={{ background: BRAND_LIGHT, color: BRAND }}
                     >
                         AI
                     </Badge>
                     <span className="text-[11px] text-zinc-400 ml-auto">
-                        {message.timestamp.toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                        })}
+                        {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                 </div>
 
@@ -242,7 +234,7 @@ export function ChatMessage({ message, isLast }: ChatMessageProps) {
                     })}
                 </div>
 
-                {/* Action buttons — appear on hover */}
+                {/* Action buttons on hover */}
                 <div className="mt-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -252,11 +244,7 @@ export function ChatMessage({ message, isLast }: ChatMessageProps) {
                                 onClick={handleCopy}
                                 className="size-7 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100"
                             >
-                                {copied ? (
-                                    <Check className="size-3 text-green-500" />
-                                ) : (
-                                    <Copy className="size-3" />
-                                )}
+                                {copied ? <Check className="size-3 text-green-500" /> : <Copy className="size-3" />}
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent>Copy message</TooltipContent>

@@ -177,7 +177,10 @@ export default function ChatPage() {
                             </h2>
                         ) : (
                             <div className="flex items-center gap-2">
-                                <div className="flex size-5 items-center justify-center rounded-md bg-gradient-to-br from-violet-500 to-indigo-600">
+                                <div
+                                    className="flex size-5 items-center justify-center rounded-md"
+                                    style={{ background: "#3A63C2" }}
+                                >
                                     <Sparkles className="size-3 text-white" />
                                 </div>
                                 <span className="text-sm font-medium text-zinc-500">New chat</span>
@@ -224,7 +227,10 @@ export default function ChatPage() {
                                 {/* Typing dots */}
                                 {isStreaming && !streamingText && (
                                     <div className="flex gap-3 px-4 py-3">
-                                        <div className="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 shadow-md shrink-0">
+                                        <div
+                                            className="flex size-8 items-center justify-center rounded-full shadow-md shrink-0"
+                                            style={{ background: "#3A63C2" }}
+                                        >
                                             <Sparkles className="size-3.5 text-white" />
                                         </div>
                                         <div className="flex items-center gap-1 mt-3">
