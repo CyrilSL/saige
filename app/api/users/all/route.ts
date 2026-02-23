@@ -2,8 +2,10 @@ import { db } from "@/lib/db";
 import { users, practices } from "@/lib/db/schema";
 import { NextResponse } from "next/server";
 import { eq, asc } from "drizzle-orm";
+import { PRACTICE_ID } from "@/lib/config";
 
-// GET /api/users/all — returns all users across all practices with practice name
+// GET /api/users/all
+// Returns all users for the active practice (scoped by PRACTICE_ID).
 export async function GET() {
     try {
         const rows = await db
@@ -19,7 +21,8 @@ export async function GET() {
             })
             .from(users)
             .innerJoin(practices, eq(users.practiceId, practices.id))
-            .orderBy(asc(practices.name), asc(users.role), asc(users.name));
+            .where(eq(users.practiceId, PRACTICE_ID))
+            .orderBy(asc(users.role), asc(users.name));
 
         return NextResponse.json(rows);
     } catch (e: any) {

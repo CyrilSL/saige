@@ -21,7 +21,6 @@ import {
     HelpCircle,
     BarChart2,
     Bell,
-    Settings,
     ChevronLeft,
     Zap,
     Trophy,
@@ -37,6 +36,7 @@ import {
     Lesson,
 } from "@/lib/learn-data";
 import { cn } from "@/lib/utils";
+import { AppSidebar } from "@/components/app-sidebar";
 
 const BRAND = "#3A63C2";
 const BRAND_LIGHT = "#eef2fb";
@@ -416,37 +416,9 @@ export default function LearnPage() {
     return (
         <div className="flex h-screen w-full overflow-hidden bg-[#F8F9FC]">
             {/* ── Left sidebar ── */}
-            <aside className="flex h-full w-60 flex-col border-r border-zinc-100 bg-white shrink-0">
-                {/* Saige brand */}
-                <div className="flex items-center gap-2 px-4 py-4 border-b border-zinc-100">
-                    <span className="text-[15px] font-bold tracking-tight text-zinc-900">Saige</span>
-                    <span className="ml-auto text-[10px] font-semibold rounded-full px-2 py-0.5" style={{ background: BRAND_LIGHT, color: BRAND }}>Learn</span>
-                </div>
-
-                {/* Mode switcher */}
-                <div className="px-3 pt-4 pb-3">
-                    <div className="flex rounded-xl p-1 gap-1" style={{ background: "#F1F5F9" }}>
-                        <a
-                            href="/ask"
-                            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-[12px] font-medium text-zinc-500 hover:text-zinc-700 transition-all"
-                        >
-                            <Sparkles className="size-3.5" />
-                            Ask
-                        </a>
-                        <a
-                            href="/learn"
-                            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-[12px] font-semibold text-zinc-800 bg-white shadow-sm transition-all"
-                        >
-                            <BookOpen className="size-3.5" style={{ color: BRAND }} />
-                            Learn
-                        </a>
-                    </div>
-                </div>
-
-                <div className="mx-3 h-px bg-zinc-100" />
-
+            <AppSidebar>
                 {/* Categories */}
-                <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
+                <nav className="flex-1 px-3 py-3 space-y-0.5">
                     <div className="pb-1 px-2">
                         <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-300">Categories</p>
                     </div>
@@ -468,20 +440,7 @@ export default function LearnPage() {
                         </button>
                     ))}
                 </nav>
-
-                {/* User footer */}
-                <div className="border-t border-zinc-100 p-3 flex items-center gap-2.5">
-                    <div className="size-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white shadow-sm shrink-0"
-                        style={{ background: BRAND }}>
-                        U
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-semibold text-zinc-800 truncate">Your Account</p>
-                        <p className="text-[10px] text-zinc-400">Dental Professional</p>
-                    </div>
-                    <Settings className="size-4 text-zinc-300 hover:text-zinc-600 cursor-pointer transition-colors shrink-0" />
-                </div>
-            </aside>
+            </AppSidebar>
 
             {/* ── Main area ── */}
             <main className="flex flex-1 flex-col overflow-hidden">

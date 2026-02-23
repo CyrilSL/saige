@@ -2,18 +2,17 @@ import { db } from "@/lib/db";
 import { users, userCourseAssignments, courses } from "@/lib/db/schema";
 import { NextResponse } from "next/server";
 import { eq, and, ne, desc } from "drizzle-orm";
+import { PRACTICE_ID } from "@/lib/config";
 
-// GET /api/manage/users
+// GET /api/manage/users — staff only (non-managers) for the active practice
 export async function GET() {
     try {
-        // Fetch staff (non-managers) 
         const staffUsers = await db
             .select()
             .from(users)
-            .where(and(eq(users.practiceId, 1), ne(users.role, "manager")))
+            .where(and(eq(users.practiceId, PRACTICE_ID), ne(users.role, "manager")))
             .orderBy(desc(users.createdAt));
 
-        // Fetch assignments with course info for all staff
         const assignments = await db
             .select({
                 userId: userCourseAssignments.userId,
@@ -25,7 +24,6 @@ export async function GET() {
             .from(userCourseAssignments)
             .innerJoin(courses, eq(userCourseAssignments.courseId, courses.id));
 
-        // Group assignments by userId
         const assignmentMap: Record<number, typeof assignments> = {};
         for (const a of assignments) {
             if (!assignmentMap[a.userId]) assignmentMap[a.userId] = [];
@@ -44,7 +42,7 @@ export async function GET() {
     }
 }
 
-// POST /api/manage/users  (invite new staff)
+// POST /api/manage/users — invite new staff
 export async function POST(req: Request) {
     try {
         const body = await req.json();
@@ -58,7 +56,7 @@ export async function POST(req: Request) {
         };
 
         const [created] = await db.insert(users).values({
-            practiceId: 1,
+            practiceId: PRACTICE_ID,
             name: name?.trim() || email.split("@")[0],
             email: email.trim(),
             role: (roleMap[role] ?? "front_desk") as any,

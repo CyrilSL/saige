@@ -1,13 +1,14 @@
 import { db } from "@/lib/db";
-import { courses, modules, lessons } from "@/lib/db/schema";
+import { courses } from "@/lib/db/schema";
 import { NextResponse } from "next/server";
 import { eq, desc } from "drizzle-orm";
+import { PRACTICE_ID } from "@/lib/config";
 
 // GET /api/manage/courses
 export async function GET() {
     try {
         const allCourses = await db.query.courses.findMany({
-            where: eq(courses.practiceId, 1), // practiceId=1 = Riverside Dental (seeded)
+            where: eq(courses.practiceId, PRACTICE_ID),
             with: {
                 modules: {
                     with: {
@@ -19,8 +20,8 @@ export async function GET() {
             orderBy: [desc(courses.createdAt)],
         });
         return NextResponse.json(allCourses);
-    } catch (e) {
-        console.error(e);
+    } catch (e: any) {
+        console.error("GET /api/manage/courses error:", e?.message ?? e);
         return NextResponse.json({ error: "Failed to fetch courses" }, { status: 500 });
     }
 }
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
         const { title, subtitle, category, level, status, thumbnail, color, assignedRoles } = body;
 
         const [created] = await db.insert(courses).values({
-            practiceId: 1,
+            practiceId: PRACTICE_ID,
             title,
             subtitle: subtitle ?? "",
             category: category ?? "front-office",
@@ -40,12 +41,14 @@ export async function POST(req: Request) {
             status: status ?? "draft",
             thumbnail: thumbnail ?? "📚",
             color: color ?? "#3A63C2",
-            assignedRoles: Array.isArray(assignedRoles) ? assignedRoles.join(",") : (assignedRoles ?? ""),
+            assignedRoles: Array.isArray(assignedRoles)
+                ? assignedRoles.join(",")
+                : (assignedRoles ?? ""),
         }).returning();
 
-        return NextResponse.json(created, { status: 201 });
-    } catch (e) {
-        console.error(e);
+        return NextResponse.json({ ...created, modules: [] }, { status: 201 });
+    } catch (e: any) {
+        console.error("POST /api/manage/courses error:", e?.message ?? e);
         return NextResponse.json({ error: "Failed to create course" }, { status: 500 });
     }
 }

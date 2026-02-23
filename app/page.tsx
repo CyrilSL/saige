@@ -2,7 +2,8 @@
 
 import { Sparkles, BookOpen, Home, ArrowRight, CheckCircle2, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { UserSwitcher } from "@/components/user-switcher";
+import { AppSidebar } from "@/components/app-sidebar";
+import { useRBAC } from "@/lib/rbac";
 
 const BRAND = "#3A63C2";
 const BRAND_LIGHT = "#eef2fb";
@@ -26,42 +27,18 @@ function NavItem({ icon, label, href, active }: { icon: React.ReactNode; label: 
 export default function HomePage() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const { isManager } = useRBAC();
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#F8F9FC]">
-      {/* Sidebar */}
-      <aside className="flex h-full w-60 flex-col border-r border-zinc-100 bg-white shrink-0">
-        <div className="flex items-center gap-2 px-4 py-4 border-b border-zinc-100">
-          <span className="text-[15px] font-bold tracking-tight text-zinc-900">Saige</span>
-        </div>
-
-        <div className="px-3 pt-4 pb-3">
-          <div className="flex rounded-xl p-1 gap-1" style={{ background: "#F1F5F9" }}>
-            <a href="/ask" className="flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-[12px] font-medium text-zinc-500 hover:text-zinc-700 transition-all">
-              <Sparkles className="size-3.5" />
-              Ask
-            </a>
-            <a href="/learn" className="flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-[12px] font-medium text-zinc-500 hover:text-zinc-700 transition-all">
-              <BookOpen className="size-3.5" />
-              Learn
-            </a>
-          </div>
-        </div>
-
-        <div className="mx-3 h-px bg-zinc-100" />
-
+      <AppSidebar>
         <nav className="px-3 pt-3 pb-2 space-y-0.5">
           <NavItem icon={<Home className="size-4" />} label="Home" href="/" active />
           <NavItem icon={<Sparkles className="size-4" />} label="Ask Saige" href="/ask" />
-          <NavItem icon={<BookOpen className="size-4" />} label="Learn" href="/learn" />
-          <div className="mx-0 mt-1 mb-0.5 h-px bg-zinc-100" />
-          <NavItem icon={<LayoutDashboard className="size-4" />} label="Manage" href="/manage" />
+          {!isManager && <NavItem icon={<BookOpen className="size-4" />} label="Learn" href="/learn" />}
+          {isManager && <NavItem icon={<LayoutDashboard className="size-4" />} label="Manage" href="/manage" />}
         </nav>
-
-        <div className="mt-auto border-t border-zinc-100 p-3">
-          <UserSwitcher />
-        </div>
-      </aside>
+      </AppSidebar>
 
       {/* Main */}
       <main className="flex flex-1 flex-col items-center justify-center px-8">
