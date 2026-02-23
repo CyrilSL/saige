@@ -20,7 +20,6 @@ import {
     Bell,
     ChevronRight,
     Bot,
-    Home,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -464,13 +463,6 @@ export default function AskPage() {
                             </a>
                         </div>
                     </div>
-
-                    <div className="mx-3 h-px bg-zinc-100" />
-
-                    {/* Home nav */}
-                    <nav className="px-3 pt-2 pb-1">
-                        <NavItem icon={<Home className="size-4" />} label="Home" href="/" />
-                    </nav>
 
                     <div className="mx-3 h-px bg-zinc-100" />
 
