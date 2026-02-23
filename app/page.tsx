@@ -1,7 +1,8 @@
 "use client";
 
-import { Sparkles, BookOpen, Home, Settings, ArrowRight, CheckCircle2, LayoutDashboard } from "lucide-react";
+import { Sparkles, BookOpen, Home, ArrowRight, CheckCircle2, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { UserSwitcher } from "@/components/user-switcher";
 
 const BRAND = "#3A63C2";
 const BRAND_LIGHT = "#eef2fb";
@@ -57,15 +58,8 @@ export default function HomePage() {
           <NavItem icon={<LayoutDashboard className="size-4" />} label="Manage" href="/manage" />
         </nav>
 
-        <div className="mt-auto border-t border-zinc-100 p-3 flex items-center gap-2.5">
-          <div className="size-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white shadow-sm shrink-0" style={{ background: BRAND }}>
-            U
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[12px] font-semibold text-zinc-800 truncate">Your Account</p>
-            <p className="text-[10px] text-zinc-400">Front Desk · Riverside Dental</p>
-          </div>
-          <Settings className="size-4 text-zinc-300 hover:text-zinc-600 cursor-pointer transition-colors shrink-0" />
+        <div className="mt-auto border-t border-zinc-100 p-3">
+          <UserSwitcher />
         </div>
       </aside>
 

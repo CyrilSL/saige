@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { RBACProvider } from "@/lib/rbac";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Saige — AI Chat Assistant",
+  title: "Saige — Dental Training & Knowledge",
   description:
-    "Saige is a powerful AI chat assistant for modern workflows. Ask questions, get code help, brainstorm ideas, and more.",
+    "Saige is AiroDental's internal training and operational coaching system for dental office teams.",
 };
 
 export default function RootLayout({
@@ -25,10 +26,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        <RBACProvider>
+          {children}
+        </RBACProvider>
       </body>
     </html>
   );

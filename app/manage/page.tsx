@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CATEGORIES, ROLES, CourseLevel, UserRole } from "@/lib/manage-data";
+import { UserSwitcher } from "@/components/user-switcher";
+import { useRBAC } from "@/lib/rbac";
 
 const BRAND = "#3A63C2";
 const BRAND_LIGHT = "#eef2fb";
@@ -732,6 +734,7 @@ type Tab = "courses" | "users" | "assign" | "train";
 
 export default function ManagePage() {
     const [tab, setTab] = useState<Tab>("courses");
+    const { currentUser, isManager } = useRBAC();
 
     const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
         { id: "courses", label: "Courses", icon: <BookOpen className="size-4" /> },
@@ -771,13 +774,8 @@ export default function ManagePage() {
                     ))}
                 </nav>
 
-                <div className="mt-auto border-t border-zinc-100 p-3 flex items-center gap-2.5">
-                    <div className="size-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white shadow-sm shrink-0" style={{ background: BRAND }}>FK</div>
-                    <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-semibold text-zinc-800 truncate">Furqaan Khan</p>
-                        <p className="text-[10px] text-zinc-400">Riverside Dental</p>
-                    </div>
-                    <Settings className="size-4 text-zinc-300 hover:text-zinc-600 cursor-pointer transition-colors shrink-0" />
+                <div className="mt-auto border-t border-zinc-100 p-3">
+                    <UserSwitcher />
                 </div>
             </aside>
 
@@ -788,6 +786,9 @@ export default function ManagePage() {
                     <span className="text-[14px] font-bold text-zinc-800">
                         {tab === "train" ? "Train AI" : tab === "assign" ? "Assign Courses" : tab === "users" ? "Team Management" : "Courses"}
                     </span>
+                    <div className="ml-auto">
+                        <UserSwitcher />
+                    </div>
                 </header>
 
                 {tab === "courses" && <CoursesTab />}
