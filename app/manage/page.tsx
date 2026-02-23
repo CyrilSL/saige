@@ -9,7 +9,7 @@ import {
     ChevronDown, ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { CATEGORIES } from "@/lib/manage-data";
+import { CATEGORIES, PREDEFINED_ROLES } from "@/lib/constants";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useRBAC } from "@/lib/rbac";
 
@@ -25,7 +25,7 @@ interface DBModule {
 }
 interface DBCourse {
     id: number; title: string; subtitle: string; category: string;
-    level: string; status: string; thumbnail: string; color: string;
+    status: string; thumbnail: string; color: string;
     assignedRoles: string; modules: DBModule[];
     createdAt: string; updatedAt: string;
 }
@@ -96,14 +96,6 @@ function Spinner() {
         </div>
     );
 }
-
-// ─── Shared predefined roles (db enum values) ───────────────────────────────
-const PREDEFINED_ROLES = [
-    { label: "Front Desk", value: "front_desk" },
-    { label: "Insurance & Billing", value: "insurance_billing" },
-    { label: "Assistant", value: "assistant" },
-    { label: "Hygiene", value: "hygiene" },
-];
 
 // ─── Quick-create Course Modal ────────────────────────────────────────────────
 
@@ -197,7 +189,7 @@ const OPT_LABELS = ["A", "B", "C", "D"] as const;
 function emptyQ(): QuestionDraft {
     return { _id: crypto.randomUUID(), text: "", optionA: "", optionB: "", optionC: "", optionD: "", correctOption: "A", explanation: "" };
 }
-function emptyQn(): QnDraft { return { title: "", description: "", passingScore: 70, questions: [emptyQ()] }; }
+function emptyQn(courseTitle: string, count: number): QnDraft { return { title: `${courseTitle} Quiz ${count + 1}`, description: "", passingScore: 70, questions: [emptyQ()] }; }
 
 function InlineQuestionCard({ q, index, onChange, onDelete, isOnly }: {
     q: QuestionDraft; index: number;
@@ -258,7 +250,7 @@ function InlineQuestionCard({ q, index, onChange, onDelete, isOnly }: {
 
 // ─── Inline Quiz Editor ───────────────────────────────────────────────────────
 
-function InlineQuizEditor({ courseId }: { courseId: number }) {
+function InlineQuizEditor({ courseId, courseTitle }: { courseId: number, courseTitle: string }) {
     const [saved, setSaved] = useState<Array<{ id: number; title: string; description: string; passingScore: number; questions: any[] }>>([]);
     const [loading, setLoading] = useState(true);
     const [draft, setDraft] = useState<QnDraft | null>(null);
@@ -297,7 +289,7 @@ function InlineQuizEditor({ courseId }: { courseId: number }) {
         setDeletingId(null);
     }
 
-    const isValid = draft && draft.title.trim() && draft.questions.every(q =>
+    const isValid = draft && draft.questions.every(q =>
         q.text.trim() && q.optionA.trim() && q.optionB.trim() && q.optionC.trim() && q.optionD.trim());
 
     if (draft) return (
@@ -307,13 +299,8 @@ function InlineQuizEditor({ courseId }: { courseId: number }) {
                 <button onClick={() => setDraft(null)} className="text-[12px] text-zinc-400 hover:text-zinc-700 transition-colors">← Back to quizzes</button>
             </div>
             <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 space-y-3">
-                <div className="flex gap-3">
-                    <div className="flex-1">
-                        <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide block mb-1">Quiz Title *</label>
-                        <input placeholder="e.g. End-of-Module Quiz" value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })}
-                            className="w-full h-9 px-3 text-[13px] rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:border-transparent"
-                            style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
-                    </div>
+                <div className="flex items-center gap-3">
+                    <p className="flex-1 text-[13px] font-medium text-zinc-700">{draft.title}</p>
                     <div className="w-24">
                         <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide block mb-1">Pass %</label>
                         <input type="number" min={0} max={100} value={draft.passingScore}
@@ -322,9 +309,6 @@ function InlineQuizEditor({ courseId }: { courseId: number }) {
                             style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
                     </div>
                 </div>
-                <input placeholder="Description (optional)" value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })}
-                    className="w-full h-9 px-3 text-[13px] rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:border-transparent"
-                    style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
             </div>
             <div className="space-y-2.5">
                 {draft.questions.map((q, i) => (
@@ -353,7 +337,7 @@ function InlineQuizEditor({ courseId }: { courseId: number }) {
         <div className="space-y-3">
             <div className="flex items-center justify-between">
                 <h3 className="text-[14px] font-bold text-zinc-800">Quizzes <span className="text-zinc-400 font-normal text-[12px]">({saved.length})</span></h3>
-                <button onClick={() => setDraft(emptyQn())}
+                <button onClick={() => setDraft(emptyQn(courseTitle, saved.length))}
                     className="flex items-center gap-1.5 px-3.5 py-1.5 text-[12px] font-semibold text-white rounded-xl hover:opacity-90 transition-opacity"
                     style={{ background: BRAND }}>
                     <Plus className="size-3.5" /> New Quiz
@@ -556,7 +540,7 @@ function CourseEditor({ course: initial, onBack, onDelete }: {
 
                 {/* Right: Quiz editor */}
                 <div className="flex-1 overflow-y-auto px-6 py-5 bg-[#F8F9FC]">
-                    <InlineQuizEditor courseId={initial.id} />
+                    <InlineQuizEditor courseId={initial.id} courseTitle={title} />
                 </div>
             </div>
         </div>
@@ -904,7 +888,7 @@ function AssignTab() {
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <p className={cn("text-[13px] font-semibold truncate", assigned ? "text-[#3A63C2]" : "text-zinc-700")}>{c.title}</p>
-                                                    <p className="text-[11px] text-zinc-400">{c.level} · {c.modules.length} modules</p>
+                                                    <p className="text-[11px] text-zinc-400">{c.modules.length} modules</p>
                                                 </div>
                                                 <div className={cn("size-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all", assigned ? "border-[#3A63C2]" : "border-zinc-300")}>
                                                     {assigned && <div className="size-2.5 rounded-full" style={{ background: BRAND }} />}

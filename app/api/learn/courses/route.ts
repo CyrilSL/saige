@@ -1,16 +1,18 @@
 import { db } from "@/lib/db";
-import { courses } from "@/lib/db/schema";
+import { courses, userLessonProgress } from "@/lib/db/schema";
 import { NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { PRACTICE_ID } from "@/lib/config";
 
-// GET /api/learn/courses?role=front_desk
+// GET /api/learn/courses?role=front_desk&userId=1
 // Returns published courses assigned to a given role.
 // If no role param, returns all published courses for this practice.
 export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url);
         const role = searchParams.get("role") ?? "";
+        const userIdParam = searchParams.get("userId");
+        const userId = userIdParam ? parseInt(userIdParam, 10) : null;
 
         const allCourses = await db.query.courses.findMany({
             where: and(
@@ -36,7 +38,32 @@ export async function GET(req: Request) {
             })
             : allCourses;
 
-        return NextResponse.json(filtered);
+        if (!userId) {
+            return NextResponse.json(filtered);
+        }
+
+        const userProgress = await db.query.userLessonProgress.findMany({
+            where: eq(userLessonProgress.userId, userId),
+        });
+
+        const completedMap = new Set(userProgress.filter(p => p.completed).map(p => p.lessonId));
+
+        const coursesWithProgress = filtered.map(course => {
+            const modulesWithProgress = course.modules.map(module => ({
+                ...module,
+                lessons: module.lessons.map(lesson => ({
+                    ...lesson,
+                    completed: completedMap.has(lesson.id),
+                })),
+            }));
+
+            return {
+                ...course,
+                modules: modulesWithProgress,
+            };
+        });
+
+        return NextResponse.json(coursesWithProgress);
     } catch (e: any) {
         console.error("GET /api/learn/courses error:", e?.message ?? e);
         return NextResponse.json({ error: "Failed to fetch courses" }, { status: 500 });

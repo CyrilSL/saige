@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Sparkles, BookOpen, Home, ArrowRight, CheckCircle2, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -27,7 +28,28 @@ function NavItem({ icon, label, href, active }: { icon: React.ReactNode; label: 
 export default function HomePage() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const { isManager } = useRBAC();
+  const { isManager, currentUser } = useRBAC();
+  const [courses, setCourses] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!currentUser || isManager) return;
+    fetch(`/api/learn/courses?role=${currentUser.role}&userId=${currentUser.id}`)
+      .then(res => res.json())
+      .then(data => setCourses(data));
+  }, [currentUser, isManager]);
+
+  const topCourses = courses.slice(0, 3).map(c => {
+    const totalLessons = c.modules.reduce((acc: number, m: any) => acc + m.lessons.length, 0);
+    const completedLessons = c.modules.reduce((acc: number, m: any) => acc + m.lessons.filter((l: any) => l.completed).length, 0);
+    const pct = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+    return { label: c.title, pct };
+  });
+
+  const displayCourses = topCourses.length > 0 ? topCourses : [
+    { label: "Front Office Foundations", pct: 0 },
+    { label: "Insurance & Billing Basics", pct: 0 },
+    { label: "Patient Experience", pct: 0 },
+  ];
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-[#F8F9FC]">
@@ -84,14 +106,10 @@ export default function HomePage() {
 
             {/* Mini progress */}
             <div className="mt-5 space-y-2.5">
-              {[
-                { label: "Front Office Foundations", pct: 80 },
-                { label: "Insurance & Billing Basics", pct: 40 },
-                { label: "Patient Experience", pct: 20 },
-              ].map(({ label, pct }) => (
+              {displayCourses.map(({ label, pct }) => (
                 <div key={label}>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] text-zinc-500">{label}</span>
+                    <span className="text-[11px] text-zinc-500 truncate mr-2">{label}</span>
                     <span className="text-[10px] font-semibold text-zinc-400">{pct}%</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-zinc-100 overflow-hidden">

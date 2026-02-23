@@ -28,12 +28,43 @@ import {
     PlayCircle,
     ClipboardList,
 } from "lucide-react";
-import {
-    CATEGORIES,
-    Course,
-    Module,
-    Lesson,
-} from "@/lib/learn-data";
+import { CATEGORIES } from "@/lib/constants";
+
+export interface Lesson {
+    id: string;
+    title: string;
+    duration: string;
+    type: "video" | "reading" | "quiz";
+    completed: boolean;
+    locked: boolean;
+}
+
+export interface Module {
+    id: string;
+    title: string;
+    lessons: Lesson[];
+    description: string;
+}
+
+export interface Course {
+    id: string;
+    title: string;
+    subtitle: string;
+    category: string;
+    duration: string;
+    lessons: number;
+    enrolled: number;
+    rating: number;
+    progress: number;
+    thumbnail: string;
+    instructor: string;
+    instructorTitle: string;
+    tags: string[];
+    featured?: boolean;
+    new?: boolean;
+    modules: Module[];
+    color: string;
+}
 import { cn } from "@/lib/utils";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useRBAC } from "@/lib/rbac";
@@ -51,14 +82,7 @@ function progressColor(p: number) {
     return "#E5E7EB";
 }
 
-function levelBadgeStyle(level: Course["level"]) {
-    const map: Record<Course["level"], { bg: string; text: string }> = {
-        Beginner: { bg: "#DCFCE7", text: "#15803D" },
-        Intermediate: { bg: "#FEF3C7", text: "#B45309" },
-        Advanced: { bg: "#FEE2E2", text: "#DC2626" },
-    };
-    return map[level];
-}
+
 
 function typeIcon(type: Lesson["type"]) {
     if (type === "video") return <Play className="size-3" />;
@@ -77,7 +101,6 @@ function CourseCard({
     onOpen: (c: Course) => void;
     active: boolean;
 }) {
-    const lvl = levelBadgeStyle(course.level);
     const pct = course.progress;
     return (
         <div
@@ -125,11 +148,8 @@ function CourseCard({
             </div>
 
             <div className="flex flex-col flex-1 p-4 gap-3">
-                {/* level + category */}
+                {/* category */}
                 <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-semibold rounded-full px-2 py-0.5" style={{ background: lvl.bg, color: lvl.text }}>
-                        {course.level}
-                    </span>
                     <span className="text-[10px] text-zinc-400 font-medium">{course.category.replace("-", " ").toUpperCase()}</span>
                 </div>
 
@@ -269,7 +289,6 @@ function LessonRow({ lesson }: { lesson: Lesson }) {
 function CourseViewer({ course, onBack, userId }: { course: Course; onBack: () => void; userId: number }) {
     const done = course.modules.flatMap(m => m.lessons).filter(l => l.completed).length;
     const total = course.modules.flatMap(m => m.lessons).length;
-    const lvl = levelBadgeStyle(course.level);
     const [showQuiz, setShowQuiz] = useState(false);
 
     return (
@@ -300,9 +319,6 @@ function CourseViewer({ course, onBack, userId }: { course: Course; onBack: () =
                 </div>
                 <div className="relative z-10 flex flex-col gap-4 max-w-2xl">
                     <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[11px] font-semibold rounded-full px-2.5 py-0.5" style={{ background: lvl.bg, color: lvl.text }}>
-                            {course.level}
-                        </span>
                         {course.featured && (
                             <span className="flex items-center gap-1 text-[11px] font-semibold rounded-full px-2.5 py-0.5 text-white" style={{ background: course.color }}>
                                 <Zap className="size-3" /> Featured
@@ -406,47 +422,51 @@ export default function LearnPage() {
     const [activeCategory, setActiveCategory] = useState("all");
     const [searchQuery, setSearchQuery] = useState("");
     const [activeCourse, setActiveCourse] = useState<Course | null>(null);
-    const [filterLevel, setFilterLevel] = useState<string>("all");
     const activeCourseId = activeCourse?.id ?? null;
 
     useEffect(() => {
         if (!currentUser) return;
         setLoadingCourses(true);
-        fetch(`/api/learn/courses?role=${currentUser.role}`)
+        fetch(`/api/learn/courses?role=${currentUser.role}&userId=${currentUser.id}`)
             .then(r => r.json())
             .then((data: any[]) => {
-                const mapped: Course[] = data.map(c => ({
-                    id: String(c.id),
-                    title: c.title,
-                    subtitle: c.subtitle ?? "",
-                    category: c.category ?? "front-office",
-                    level: (c.level as Course["level"]) ?? "Beginner",
-                    thumbnail: c.thumbnail ?? "📚",
-                    color: c.color ?? "#3A63C2",
-                    tags: (c.assignedRoles ?? "").split(",").map((r: string) => r.replace(/_/g, " ")).filter(Boolean),
-                    progress: 0,
-                    lessons: (c.modules ?? []).reduce((a: number, m: any) => a + (m.lessons?.length ?? 0), 0),
-                    enrolled: 0,
-                    rating: 0,
-                    duration: `${(c.modules ?? []).reduce((a: number, m: any) => a + (m.lessons?.length ?? 0), 0)} lessons`,
-                    instructor: "Riverside Dental",
-                    instructorTitle: "Practice Team",
-                    featured: false,
-                    new: false,
-                    modules: (c.modules ?? []).map((m: any) => ({
-                        id: String(m.id),
-                        title: m.title,
-                        description: m.description ?? "",
-                        lessons: (m.lessons ?? []).map((l: any) => ({
-                            id: String(l.id),
-                            title: l.title,
-                            type: (l.type ?? "video") as Lesson["type"],
-                            duration: l.duration ?? "5 min",
-                            completed: false,
-                            locked: false,
+                const mapped: Course[] = data.map(c => {
+                    const totalLessons = (c.modules ?? []).reduce((a: number, m: any) => a + (m.lessons?.length ?? 0), 0);
+                    const completedLessons = (c.modules ?? []).reduce((a: number, m: any) => a + (m.lessons ?? []).filter((l: any) => l.completed).length, 0);
+                    const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+
+                    return {
+                        id: String(c.id),
+                        title: c.title,
+                        subtitle: c.subtitle ?? "",
+                        category: c.category ?? "front-office",
+                        thumbnail: c.thumbnail ?? "📚",
+                        color: c.color ?? "#3A63C2",
+                        tags: (c.assignedRoles ?? "").split(",").map((r: string) => r.replace(/_/g, " ")).filter(Boolean),
+                        progress,
+                        lessons: totalLessons,
+                        enrolled: 0,
+                        rating: 0,
+                        duration: `${totalLessons} lessons`,
+                        instructor: "Riverside Dental",
+                        instructorTitle: "Practice Team",
+                        featured: false,
+                        new: false,
+                        modules: (c.modules ?? []).map((m: any) => ({
+                            id: String(m.id),
+                            title: m.title,
+                            description: m.description ?? "",
+                            lessons: (m.lessons ?? []).map((l: any) => ({
+                                id: String(l.id),
+                                title: l.title,
+                                type: (l.type ?? "video") as Lesson["type"],
+                                duration: l.duration ?? "5 min",
+                                completed: !!l.completed,
+                                locked: false,
+                            })),
                         })),
-                    })),
-                }));
+                    };
+                });
                 setDbCourses(mapped);
             })
             .finally(() => setLoadingCourses(false));
@@ -458,10 +478,9 @@ export default function LearnPage() {
             const matchSearch = searchQuery === "" ||
                 c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 c.subtitle.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchLevel = filterLevel === "all" || c.level === filterLevel;
-            return matchCat && matchSearch && matchLevel;
+            return matchCat && matchSearch;
         });
-    }, [dbCourses, activeCategory, searchQuery, filterLevel]);
+    }, [dbCourses, activeCategory, searchQuery]);
 
     const inProgress = dbCourses.filter(c => c.progress > 0 && c.progress < 100);
     const completed = dbCourses.filter(c => c.progress === 100);
@@ -486,7 +505,9 @@ export default function LearnPage() {
                         >
                             <span className="text-base leading-none">{cat.icon}</span>
                             <span className="flex-1 truncate">{cat.label}</span>
-                            <span className="text-[10px] text-zinc-400">{cat.count}</span>
+                            <span className="text-[10px] text-zinc-400">
+                                {dbCourses.filter(c => c.category === cat.id).length}
+                            </span>
                         </button>
                     ))}
                 </nav>
@@ -505,20 +526,6 @@ export default function LearnPage() {
                         />
                     </div>
                     <div className="ml-auto flex items-center gap-2">
-                        <div className="relative">
-                            <Filter className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-zinc-400" />
-                            <select
-                                value={filterLevel}
-                                onChange={e => { setFilterLevel(e.target.value); setActiveCourse(null); }}
-                                className="h-9 pl-7 pr-3 text-[12px] rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-600 focus:outline-none focus:ring-2 appearance-none cursor-pointer transition-all"
-                                style={{ "--tw-ring-color": BRAND } as React.CSSProperties}
-                            >
-                                <option value="all">All Levels</option>
-                                <option value="Beginner">Beginner</option>
-                                <option value="Intermediate">Intermediate</option>
-                                <option value="Advanced">Advanced</option>
-                            </select>
-                        </div>
                         <button className="relative size-9 rounded-xl border border-zinc-200 bg-zinc-50 flex items-center justify-center text-zinc-400 hover:text-zinc-700 transition-colors">
                             <Bell className="size-4" />
                             <span className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-red-500" />
@@ -627,7 +634,7 @@ export default function LearnPage() {
                                     <BookOpen className="size-10 text-zinc-200" />
                                     <p className="text-zinc-500 font-medium">No courses assigned to your role yet</p>
                                     <p className="text-[12px] text-zinc-400">Ask your manager to assign courses to your role.</p>
-                                    <button onClick={() => { setSearchQuery(""); setActiveCategory("all"); setFilterLevel("all"); }}
+                                    <button onClick={() => { setSearchQuery(""); setActiveCategory("all"); }}
                                         className="text-[13px] font-medium hover:underline" style={{ color: BRAND }}>
                                         Clear filters
                                     </button>

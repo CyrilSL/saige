@@ -30,14 +30,13 @@ export async function GET() {
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { title, subtitle, category, level, status, thumbnail, color, assignedRoles } = body;
+        const { title, subtitle, category, status, thumbnail, color, assignedRoles } = body;
 
         const [created] = await db.insert(courses).values({
             practiceId: PRACTICE_ID,
             title,
             subtitle: subtitle ?? "",
             category: category ?? "front-office",
-            level: level ?? "Beginner",
             status: status ?? "draft",
             thumbnail: thumbnail ?? "📚",
             color: color ?? "#3A63C2",
