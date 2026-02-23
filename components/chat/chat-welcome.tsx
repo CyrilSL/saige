@@ -29,11 +29,11 @@ export function ChatWelcome({ onPromptClick }: ChatWelcomeProps) {
             </div>
 
             <h1 className="mb-2 text-2xl font-bold tracking-tight text-zinc-900">
-                How can I help you today?
+                How can I help your practice today?
             </h1>
             <p className="mb-10 max-w-sm text-[14px] text-zinc-500 leading-relaxed">
-                I&apos;m Saige, your AI assistant. Ask me anything — from code reviews
-                to creative writing, I&apos;ve got you covered.
+                I&apos;m Saige, your dental practice AI. Ask me about insurance billing,
+                patient communication, scheduling, CDT coding, and more.
             </p>
 
             {/* Suggested prompts */}

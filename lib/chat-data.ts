@@ -18,160 +18,167 @@ export interface Conversation {
 export const SAMPLE_CONVERSATIONS: Conversation[] = [
     {
         id: "1",
-        title: "Getting started with Next.js",
-        lastMessage: "What are the best practices for Next.js 15?",
+        title: "Handling insurance verification",
+        lastMessage: "What's the best workflow for verifying dental benefits before an appointment?",
         timestamp: new Date(Date.now() - 1000 * 60 * 5),
         messages: [
             {
                 id: "m1",
                 role: "user",
-                content: "What are the best practices for Next.js 15?",
+                content: "What's the best workflow for verifying dental benefits before an appointment?",
                 timestamp: new Date(Date.now() - 1000 * 60 * 10),
             },
             {
                 id: "m2",
                 role: "assistant",
-                content: `Here are the key best practices for Next.js 15:
+                content: `Great question! Here's a reliable insurance verification workflow for dental practices:
 
-**1. Use the App Router**
-The App Router is now the recommended way to build Next.js applications. It supports React Server Components by default, which means less JavaScript shipped to the client.
+**1. Verify 48–72 hours before the appointment**
+Don't wait until the day of. Call or use your carrier's online portal at least 2 days ahead to allow time to resolve any issues.
 
-**2. Leverage Server Components**
-Use React Server Components for data fetching and rendering. They run on the server and don't add to your bundle size.
+**2. Confirm the key benefit details**
+- Plan type (PPO, HMO, Indemnity)
+- Annual maximum & remaining balance
+- Deductible (individual/family) & amount met
+- Preventive, basic, and major coverage percentages
+- Waiting periods for new patients
+- Missing tooth clause & frequency limitations
 
-**3. Optimize Images**
-Always use the \`next/image\` component for automatic image optimization, lazy loading, and WebP conversion.
+**3. Check eligibility, not just coverage**
+A patient can have coverage but still be ineligible (e.g., not yet past their waiting period). Always verify both.
 
-**4. Implement Proper Caching**
-Take advantage of Next.js's built-in caching strategies — static, dynamic, and on-demand revalidation.
+**4. Document everything**
+Record the rep's name, call reference number, date/time, and what was confirmed. This protects you if there's a dispute later.
 
-**5. Use TypeScript**
-TypeScript is fully supported and provides better developer experience with type safety.
+**5. Communicate with the patient**
+Share a pre-visit benefit summary so patients understand their estimated out-of-pocket costs before sitting in the chair.
 
-Would you like me to dive deeper into any of these topics?`,
+Would you like a script your front office team can use when calling insurance companies?`,
                 timestamp: new Date(Date.now() - 1000 * 60 * 9),
             },
         ],
     },
     {
         id: "2",
-        title: "Tailwind CSS tips & tricks",
-        lastMessage: "How do I create a glass morphism effect?",
+        title: "Reducing patient no-shows",
+        lastMessage: "How can we reduce our no-show rate?",
         timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
         messages: [
             {
                 id: "m3",
                 role: "user",
-                content: "How do I create a glass morphism effect with Tailwind CSS?",
+                content: "Our no-show rate is around 15%. What are the most effective ways to bring that down?",
                 timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
             },
             {
                 id: "m4",
                 role: "assistant",
-                content: `Creating a glassmorphism effect with Tailwind CSS is straightforward! Here's how:
+                content: `A 15% no-show rate is costly — here's a proven strategy to get it under 5%:
 
-\`\`\`html
-<div class="
-  bg-white/10 
-  backdrop-blur-md 
-  border border-white/20 
-  rounded-2xl 
-  shadow-lg
-  p-6
-">
-  Glass morphism card
-</div>
-\`\`\`
+**Short-term fixes (implement this week)**
+- **3-touch confirmation system:** Send an email 1 week out, a text 3 days out, and a call/text the morning before.
+- **Require credit card on file** for new patients. Charge a no-show fee ($25–$50) — this alone can cut no-shows significantly.
 
-**Key classes:**
-- \`bg-white/10\` — semi-transparent white background
-- \`backdrop-blur-md\` — blurs content behind the element
-- \`border-white/20\` — subtle white border
-- \`shadow-lg\` — soft shadow for depth
+**Medium-term systems**
+- Use automated reminders via your PMS (Dentrix, Eaglesoft, etc.)
+- Add a **"Confirm or Cancel" button** in reminder texts. Make it easy to cancel so you can backfill the slot.
+- Build a **short-notice cancellation list** of patients who want to come in last-minute.
 
-You can adjust the opacity values to get the exact look you want. Try \`bg-white/5\` for a more subtle effect or \`bg-white/20\` for a stronger glass look.`,
+**Relationship-driven tactics**
+- Personalized calls from the doctor or hygienist for high-value appointments (crowns, implant consults)
+- For chronic no-show patients, require pre-payment for appointments
+
+**Track your data**
+Identify which appointment types, times of day, and patient demographics are highest-risk, then adjust your reminder cadence accordingly.
+
+What's your current reminder system? I can help you optimize it.`,
                 timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2 + 30000),
             },
         ],
     },
     {
         id: "3",
-        title: "React Server Components explained",
-        lastMessage: "When should I use 'use client'?",
+        title: "CDT coding for crown procedures",
+        lastMessage: "Which CDT code do I use for a PFM crown on tooth #19?",
         timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
         messages: [
             {
                 id: "m5",
                 role: "user",
-                content: "When should I use 'use client' directive in Next.js?",
+                content: "Which CDT code do I use for a PFM crown on tooth #19?",
                 timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
             },
             {
                 id: "m6",
                 role: "assistant",
-                content: `Great question! Use the \`"use client"\` directive when your component needs:
+                content: `For a porcelain-fused-to-metal (PFM) crown on tooth #19 (a posterior molar), use:
 
-**✅ Use 'use client' for:**
-- **Event handlers** — onClick, onChange, onSubmit, etc.
-- **React hooks** — useState, useEffect, useRef, useContext
-- **Browser APIs** — localStorage, window, document
-- **Real-time updates** — WebSockets, live data
-- **Third-party libraries** that rely on browser APIs
+**D2752** — Crown, porcelain fused to noble metal
 
-**❌ Keep on Server (default) for:**
-- Data fetching from databases or APIs
-- Components that only render static content
-- Components that don't need interactivity
-- Large dependencies you don't want in the bundle
+> Tooth #19 is a molar, so you're billing for a posterior crown. Most carriers distinguish between anterior (front) and posterior (back) crowns, so make sure you're using the correct code.
 
-**Pro tip:** Place \`"use client"\` as low in the component tree as possible. Only the component and its children become client components — parent components remain server components.
+**Key documentation to support the claim:**
+- X-rays showing the condition that necessitated the crown (caries, fracture, failing restoration)
+- Narrative describing why a crown was the appropriate treatment
+- Pre-op and post-op photos (increasingly required)
+- Date of preparation and date of seat (some carriers require both)
 
-This approach minimizes the JavaScript bundle sent to the browser.`,
+**Common denials to watch for:**
+- Missing tooth clause (if tooth was extracted before plan inception)
+- Frequency limitation (most plans cover crowns every 5–7 years)
+- Alternative benefit clause (carrier may pay for an amalgam instead)
+
+**Related codes you may also need:**
+- D0220/D0230 — Periapical X-rays (if taken as part of diagnosis)
+- D2950 — Core buildup (if applicable, document separately)
+- D9930 — Treatment of complications of previous crown (if a redo)
+
+Would you like help writing the narrative for this claim?`,
                 timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 + 60000),
             },
         ],
     },
     {
         id: "4",
-        title: "Database design patterns",
-        lastMessage: "What's the difference between SQL and NoSQL?",
+        title: "Setting up a recall system",
+        lastMessage: "How do we build an effective hygiene recall program?",
         timestamp: new Date(Date.now() - 1000 * 60 * 60 * 48),
         messages: [],
     },
     {
         id: "5",
-        title: "Building a REST API",
-        lastMessage: "How do I handle authentication in API routes?",
+        title: "Scripting treatment plan presentations",
+        lastMessage: "How should we present a $4,500 treatment plan to a patient?",
         timestamp: new Date(Date.now() - 1000 * 60 * 60 * 72),
         messages: [],
     },
 ];
 
 export const WELCOME_MESSAGES = [
-    "How can I help you today?",
-    "What would you like to explore?",
-    "Ask me anything — I'm here to help.",
+    "How can I help your practice today?",
+    "What dental practice question can I answer?",
+    "Ask me anything about running your dental office.",
 ];
 
 export const SUGGESTED_PROMPTS = [
     {
-        icon: "✨",
-        title: "Write better code",
-        description: "Help me refactor this function to be more readable",
+        icon: "🗂️",
+        title: "Insurance & billing",
+        description: "How do I write an effective appeal letter for a denied dental claim?",
     },
     {
-        icon: "🔍",
-        title: "Debug an issue",
-        description: "Why is my useEffect running infinitely?",
+        icon: "📅",
+        title: "Scheduling & recalls",
+        description: "What's the best system to keep our hygiene schedule full?",
     },
     {
-        icon: "📚",
-        title: "Explain a concept",
-        description: "How does React's reconciliation algorithm work?",
+        icon: "💬",
+        title: "Patient communication",
+        description: "How do I respond to a negative Google review about wait times?",
     },
     {
-        icon: "🚀",
-        title: "Optimize performance",
-        description: "What are the best strategies for reducing bundle size?",
+        icon: "📊",
+        title: "Practice growth",
+        description: "What KPIs should a dental office track every month?",
     },
 ];
