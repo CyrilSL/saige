@@ -396,6 +396,7 @@ export default function LearnPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [activeCourse, setActiveCourse] = useState<Course | null>(null);
     const [filterLevel, setFilterLevel] = useState<string>("all");
+    const activeCourseId = activeCourse?.id ?? null;
 
     const filtered = useMemo(() => {
         return COURSES.filter(c => {
@@ -641,7 +642,7 @@ export default function LearnPage() {
                                             key={course.id}
                                             course={course}
                                             onOpen={setActiveCourse}
-                                            active={activeCourse?.id === course.id}
+                                            active={activeCourseId === course.id}
                                         />
                                     ))}
                                 </div>
@@ -660,7 +661,7 @@ export default function LearnPage() {
                                             key={course.id}
                                             course={course}
                                             onOpen={setActiveCourse}
-                                            active={activeCourse?.id === course.id}
+                                            active={activeCourseId === course.id}
                                         />
                                     ))}
                                 </div>

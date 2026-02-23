@@ -112,3 +112,12 @@
 .typing-dot {
   animation: typing-bounce 1.2s ease-in-out infinite;
 }
+
+/* Hide scrollbar but allow scrolling */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
