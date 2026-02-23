@@ -12,13 +12,7 @@ import {
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
-export const userRoleEnum = pgEnum("user_role", [
-    "manager",
-    "front_desk",
-    "insurance_billing",
-    "assistant",
-    "hygiene",
-]);
+
 
 export const userStatusEnum = pgEnum("user_status", [
     "active",
@@ -78,7 +72,7 @@ export const users = pgTable("users", {
     practiceId: integer("practice_id").references(() => practices.id).notNull(),
     name: text("name").notNull(),
     email: text("email").notNull(),
-    role: userRoleEnum("role").notNull().default("front_desk"),
+    role: text("role").notNull().default("front_desk"),
     status: userStatusEnum("status").notNull().default("invited"),
     avatarInitials: text("avatar_initials"),
     createdAt: timestamp("created_at").defaultNow().notNull(),

@@ -6,7 +6,7 @@ import {
     Plus, Search, FileText, Trash2, Edit3,
     Upload, X, GraduationCap, UserPlus, Globe, Lock, Loader2,
     ClipboardList, ArrowLeft, CheckCircle2, Eye, EyeOff, Save,
-    ChevronDown, ChevronUp,
+    ChevronDown, ChevronUp, Shield, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CATEGORIES, PREDEFINED_ROLES } from "@/lib/constants";
@@ -42,11 +42,12 @@ interface DBDoc {
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
 function roleLabel(r: string) {
+    if (!r) return "";
     const map: Record<string, string> = {
         front_desk: "Front Desk", insurance_billing: "Insurance & Billing",
         assistant: "Assistant", hygiene: "Hygiene", manager: "Manager",
     };
-    return map[r] ?? r;
+    return r.split(",").map(rm => map[rm.trim()] ?? rm.trim().replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())).join(", ");
 }
 
 function NavItem({ icon, label, active, onClick, badge }: {
@@ -189,7 +190,7 @@ const OPT_LABELS = ["A", "B", "C", "D"] as const;
 function emptyQ(): QuestionDraft {
     return { _id: crypto.randomUUID(), text: "", optionA: "", optionB: "", optionC: "", optionD: "", correctOption: "A", explanation: "" };
 }
-function emptyQn(courseTitle: string, count: number): QnDraft { return { title: `${courseTitle} Quiz ${count + 1}`, description: "", passingScore: 70, questions: [emptyQ()] }; }
+function emptyQn(courseTitle: string, count: number): QnDraft { return { title: `${courseTitle} Question Set ${count + 1}`, description: "", passingScore: 70, questions: [emptyQ()] }; }
 
 function InlineQuestionCard({ q, index, onChange, onDelete, isOnly }: {
     q: QuestionDraft; index: number;
@@ -238,7 +239,7 @@ function InlineQuestionCard({ q, index, onChange, onDelete, isOnly }: {
                             );
                         })}
                     </div>
-                    <input placeholder="Explanation (optional) — shown after quiz" value={q.explanation}
+                    <input placeholder="Explanation (optional) — shown after questions" value={q.explanation}
                         onChange={e => onChange({ ...q, explanation: e.target.value })}
                         className="w-full text-[12px] rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 focus:outline-none focus:ring-2 focus:border-transparent text-zinc-500"
                         style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
@@ -295,8 +296,8 @@ function InlineQuizEditor({ courseId, courseTitle }: { courseId: number, courseT
     if (draft) return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-                <h3 className="text-[14px] font-bold text-zinc-800">{draft.id ? "Edit Quiz" : "New Quiz"}</h3>
-                <button onClick={() => setDraft(null)} className="text-[12px] text-zinc-400 hover:text-zinc-700 transition-colors">← Back to quizzes</button>
+                <h3 className="text-[14px] font-bold text-zinc-800">{draft.id ? "Edit Questions" : "New Questions"}</h3>
+                <button onClick={() => setDraft(null)} className="text-[12px] text-zinc-400 hover:text-zinc-700 transition-colors">← Back to questions</button>
             </div>
             <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 space-y-3">
                 <div className="flex items-center gap-3">
@@ -327,7 +328,7 @@ function InlineQuizEditor({ courseId, courseTitle }: { courseId: number, courseT
                 <button onClick={saveQn} disabled={!isValid || saving}
                     className="flex items-center gap-1.5 px-5 py-2 text-[13px] font-semibold text-white rounded-xl transition-opacity hover:opacity-90 disabled:opacity-40"
                     style={{ background: BRAND }}>
-                    <Save className="size-3.5" />{saving ? "Saving…" : (draft.id ? "Save Changes" : "Create Quiz")}
+                    <Save className="size-3.5" />{saving ? "Saving…" : (draft.id ? "Save Changes" : "Create Questions")}
                 </button>
             </div>
         </div>
@@ -336,11 +337,11 @@ function InlineQuizEditor({ courseId, courseTitle }: { courseId: number, courseT
     return (
         <div className="space-y-3">
             <div className="flex items-center justify-between">
-                <h3 className="text-[14px] font-bold text-zinc-800">Quizzes <span className="text-zinc-400 font-normal text-[12px]">({saved.length})</span></h3>
+                <h3 className="text-[14px] font-bold text-zinc-800">Questions <span className="text-zinc-400 font-normal text-[12px]">({saved.length})</span></h3>
                 <button onClick={() => setDraft(emptyQn(courseTitle, saved.length))}
                     className="flex items-center gap-1.5 px-3.5 py-1.5 text-[12px] font-semibold text-white rounded-xl hover:opacity-90 transition-opacity"
                     style={{ background: BRAND }}>
-                    <Plus className="size-3.5" /> New Quiz
+                    <Plus className="size-3.5" /> New Questions
                 </button>
             </div>
             {loading ? (
@@ -348,8 +349,8 @@ function InlineQuizEditor({ courseId, courseTitle }: { courseId: number, courseT
             ) : saved.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center gap-2 rounded-xl border border-dashed border-zinc-200 bg-zinc-50">
                     <ClipboardList className="size-8 text-zinc-200" />
-                    <p className="text-[13px] text-zinc-400 font-medium">No quizzes yet</p>
-                    <p className="text-[12px] text-zinc-300">Create your first quiz for this course</p>
+                    <p className="text-[13px] text-zinc-400 font-medium">No questions yet</p>
+                    <p className="text-[12px] text-zinc-300">Create your first question set for this course</p>
                 </div>
             ) : (
                 <div className="space-y-2">
@@ -419,14 +420,6 @@ function CourseEditor({ course: initial, onBack, onDelete }: {
         } finally { setSaving(false); }
     }
 
-    async function togglePublish() {
-        const next = status === "published" ? "draft" : "published";
-        setStatus(next);
-        await fetch(`/api/manage/courses/${initial.id}`, {
-            method: "PATCH", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title, subtitle, category, status: next, thumbnail, color: selectedCat?.color ?? BRAND, assignedRoles: roles }),
-        });
-    }
 
     async function handleDelete() {
         if (!confirm("Delete this course? This cannot be undone.")) return;
@@ -434,7 +427,13 @@ function CourseEditor({ course: initial, onBack, onDelete }: {
         onDelete(initial.id);
     }
 
-    const isPublished = status === "published";
+    const hasChanges =
+        title !== initial.title ||
+        subtitle !== (initial.subtitle ?? "") ||
+        category !== initial.category ||
+        thumbnail !== (initial.thumbnail ?? "📚") ||
+        roles.join(",") !== (initial.assignedRoles ?? "") ||
+        status !== initial.status;
 
     return (
         <div className="flex-1 overflow-hidden flex flex-col">
@@ -448,17 +447,31 @@ function CourseEditor({ course: initial, onBack, onDelete }: {
                 <span className="text-zinc-200">/</span>
                 <span className="text-[13px] font-semibold text-zinc-800 truncate max-w-[220px]">{title || "Untitled"}</span>
                 <div className="flex-1" />
-                <button onClick={togglePublish}
-                    className={cn("flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-semibold border transition-all",
-                        isPublished ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100" : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100")}>
-                    {isPublished ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
-                    {isPublished ? "Published" : "Draft — Publish"}
-                </button>
-                <button onClick={save} disabled={saving}
-                    className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                <select
+                    value={status}
+                    onChange={(e) => { setStatus(e.target.value as any); setSavedFlag(false); }}
+                    className={cn(
+                        "h-9 px-4 pr-8 text-[13px] font-semibold rounded-xl border appearance-none transition-all cursor-pointer focus:outline-none focus:ring-2",
+                        status === "published"
+                            ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                            : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100"
+                    )}
+                    style={{
+                        "--tw-ring-color": BRAND,
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='currentColor'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "right 0.7rem center",
+                        backgroundSize: "0.8em"
+                    } as React.CSSProperties}
+                >
+                    <option value="draft">Draft</option>
+                    <option value="published">Published</option>
+                </select>
+                <button onClick={save} disabled={saving || (!hasChanges && !savedFlag)}
+                    className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ background: BRAND }}>
                     {saving ? <Loader2 className="size-3.5 animate-spin" /> : savedFlag ? <CheckCircle2 className="size-3.5" /> : <Save className="size-3.5" />}
-                    {saving ? "Saving…" : savedFlag ? "Saved!" : "Save"}
+                    {saving ? "Saving…" : savedFlag ? "Saved!" : "Save Changes"}
                 </button>
             </div>
 
@@ -721,189 +734,238 @@ function InviteModal({ onClose, onSave }: { onClose: () => void; onSave: (u: DBU
     );
 }
 
-function UsersTab() {
-    const [users, setUsers] = useState<DBUser[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [showInvite, setShowInvite] = useState(false);
-    const [search, setSearch] = useState("");
-
-    useEffect(() => {
-        fetch("/api/manage/users").then(r => r.json()).then(data => {
-            setUsers(data); setLoading(false);
-        });
-    }, []);
-
-    const filtered = users.filter(u =>
-        u.name.toLowerCase().includes(search.toLowerCase()) ||
-        u.email.toLowerCase().includes(search.toLowerCase())
-    );
-
-    return (
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
-            {showInvite && <InviteModal onClose={() => setShowInvite(false)} onSave={u => setUsers(prev => [u, ...prev])} />}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-[20px] font-bold tracking-tight text-zinc-900">Team</h1>
-                    <p className="text-[12px] text-zinc-400 mt-0.5">Manage staff access and roles</p>
-                </div>
-                <button onClick={() => setShowInvite(true)}
-                    className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold text-white rounded-xl hover:opacity-90 transition-opacity"
-                    style={{ background: BRAND }}>
-                    <UserPlus className="size-4" /> Invite Staff
-                </button>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-                {[
-                    { label: "Total Staff", value: users.length },
-                    { label: "Active", value: users.filter(u => u.status === "active").length },
-                    { label: "Pending Invite", value: users.filter(u => u.status === "invited").length },
-                ].map(s => (
-                    <div key={s.label} className="rounded-2xl bg-white border border-zinc-100 px-4 py-4">
-                        <p className="text-[22px] font-bold text-zinc-900">{loading ? "—" : s.value}</p>
-                        <p className="text-[11px] text-zinc-400 mt-0.5">{s.label}</p>
-                    </div>
-                ))}
-            </div>
-            <div className="bg-white rounded-2xl border border-zinc-100 overflow-hidden">
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-100">
-                    <Search className="size-3.5 text-zinc-400 shrink-0" />
-                    <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search staff..."
-                        className="flex-1 text-[13px] bg-transparent placeholder:text-zinc-400 focus:outline-none" />
-                </div>
-                {loading ? <Spinner /> : filtered.map(u => (
-                    <div key={u.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-zinc-50/80 transition-colors border-b border-zinc-100 last:border-0 group">
-                        <div className="size-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0" style={{ background: BRAND }}>
-                            {u.avatarInitials}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-[13px] font-semibold text-zinc-800">{u.name}</p>
-                            <p className="text-[11px] text-zinc-400">{u.email}</p>
-                        </div>
-                        <span className="hidden md:block text-[11px] font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600">
-                            {roleLabel(u.role)}
-                        </span>
-                        <span className="hidden sm:block text-[11px] text-zinc-400">
-                            {u.assignedCourses.length} courses
-                        </span>
-                        <StatusBadge status={u.status} />
-                        <button className="size-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors opacity-0 group-hover:opacity-100">
-                            <Edit3 className="size-4" />
-                        </button>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-// ─── Assign Tab ───────────────────────────────────────────────────────────────
-
-function AssignTab() {
+function TeamTab() {
     const [users, setUsers] = useState<DBUser[]>([]);
     const [courses, setCourses] = useState<DBCourse[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedUser, setSelectedUser] = useState<DBUser | null>(null);
-    const [assignments, setAssignments] = useState<Record<number, number[]>>({});
+    const [showInvite, setShowInvite] = useState(false);
+    const [search, setSearch] = useState("");
+
+    // Editing state for selected user
+    const [editedRoles, setEditedRoles] = useState<string[]>([]);
+    const [editedCourses, setEditedCourses] = useState<number[]>([]);
+    const [customRoleInput, setCustomRoleInput] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [savedFlag, setSavedFlag] = useState(false);
 
     useEffect(() => {
         Promise.all([
             fetch("/api/manage/users").then(r => r.json()),
-            fetch("/api/manage/courses").then(r => r.json()),
+            fetch("/api/manage/courses").then(r => r.json())
         ]).then(([u, c]) => {
             setUsers(u);
             setCourses(c);
-            const map: Record<number, number[]> = {};
-            (u as DBUser[]).forEach(user => {
-                map[user.id] = user.assignedCourses.map((a: any) => a.course?.id).filter(Boolean);
-            });
-            setAssignments(map);
             setLoading(false);
         });
     }, []);
 
-    function toggleAssign(userId: number, courseId: number) {
-        setAssignments(prev => {
-            const cur = prev[userId] ?? [];
-            return { ...prev, [userId]: cur.includes(courseId) ? cur.filter(x => x !== courseId) : [...cur, courseId] };
-        });
+    // Load initial states when user selected
+    useEffect(() => {
+        if (selectedUser) {
+            setEditedRoles((selectedUser.role ?? "").split(",").filter(Boolean));
+            setEditedCourses(selectedUser.assignedCourses?.map((a: any) => a.course?.id).filter(Boolean) ?? []);
+            setCustomRoleInput("");
+            setSavedFlag(false);
+        }
+    }, [selectedUser]);
+
+    const filteredUsers = users.filter(u =>
+        u.name.toLowerCase().includes(search.toLowerCase()) ||
+        u.email.toLowerCase().includes(search.toLowerCase())
+    );
+
+    function addCustomRole() {
+        const v = customRoleInput.trim().toLowerCase().replace(/\s+/g, "_");
+        if (!v || editedRoles.includes(v)) { setCustomRoleInput(""); return; }
+        setEditedRoles(prev => [...prev, v]); setCustomRoleInput(""); setSavedFlag(false);
     }
+    function toggleRole(r: string) {
+        setEditedRoles(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]);
+        setSavedFlag(false);
+    }
+    function toggleCourse(cid: number) {
+        setEditedCourses(prev => prev.includes(cid) ? prev.filter(x => x !== cid) : [...prev, cid]);
+        setSavedFlag(false);
+    }
+
+    async function saveProfile() {
+        if (!selectedUser) return;
+        setSaving(true);
+        try {
+            const roleStr = editedRoles.join(",") || "front_desk";
+            const res = await fetch(`/api/manage/users/${selectedUser.id}`, {
+                method: "PATCH", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ role: roleStr, assignedCourses: editedCourses })
+            });
+            if (res.ok) {
+                // update local state so changes reflect instantly
+                setUsers(prev => prev.map(u =>
+                    u.id === selectedUser.id ? { ...u, role: roleStr, assignedCourses: editedCourses.map(id => ({ course: { id } })) } as any : u
+                ));
+                setSelectedUser(prev => prev ? { ...prev, role: roleStr, assignedCourses: editedCourses.map(id => ({ course: { id } })) } as any : null);
+                setSavedFlag(true); setTimeout(() => setSavedFlag(false), 2000);
+            }
+        } finally { setSaving(false); }
+    }
+
+    const hasChanges = selectedUser && (
+        editedRoles.join(",") !== (selectedUser.role ?? "") ||
+        JSON.stringify(editedCourses.sort()) !== JSON.stringify((selectedUser.assignedCourses?.map((a: any) => a.course?.id).filter(Boolean) ?? []).sort())
+    );
 
     return (
         <div className="flex-1 overflow-hidden flex flex-col px-6 py-6 gap-5">
+            {showInvite && <InviteModal onClose={() => setShowInvite(false)} onSave={u => setUsers(prev => [u, ...prev])} />}
             <div>
-                <h1 className="text-[20px] font-bold tracking-tight text-zinc-900">Assign Courses</h1>
-                <p className="text-[12px] text-zinc-400 mt-0.5">Select a staff member and assign learning paths</p>
+                <h1 className="text-[20px] font-bold tracking-tight text-zinc-900">Team / Roles</h1>
+                <p className="text-[12px] text-zinc-400 mt-0.5">Manage staff access, roles, and course assignments</p>
             </div>
             {loading ? <Spinner /> : (
                 <div className="flex gap-4 flex-1 min-h-0">
-                    {/* Staff list */}
-                    <div className="w-64 shrink-0 bg-white rounded-2xl border border-zinc-100 overflow-hidden flex flex-col">
-                        <div className="px-4 py-3 border-b border-zinc-100">
-                            <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide">Staff Members</p>
+                    {/* Left: Staff list */}
+                    <div className="w-[300px] shrink-0 bg-white rounded-2xl border border-zinc-100 overflow-hidden flex flex-col">
+                        <div className="px-3 py-3 border-b border-zinc-100 flex flex-col gap-2 shrink-0">
+                            <div className="flex items-center gap-2 bg-zinc-50 rounded-lg px-2 py-1.5 border border-zinc-200 focus-within:ring-2 focus-within:border-transparent transition-all" style={{ "--tw-ring-color": BRAND } as React.CSSProperties}>
+                                <Search className="size-3.5 text-zinc-400 shrink-0 ml-0.5" />
+                                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search staff..." className="flex-1 text-[12px] bg-transparent placeholder:text-zinc-400 focus:outline-none h-6" />
+                            </div>
+                            <button onClick={() => setShowInvite(true)} className="w-full py-1.5 text-[12px] font-semibold text-white rounded-lg transition-opacity hover:opacity-90 flex items-center justify-center gap-1.5" style={{ background: BRAND }}>
+                                <UserPlus className="size-3.5" /> Invite Staff
+                            </button>
                         </div>
-                        <div className="flex-1 overflow-y-auto">
-                            {users.map(u => (
-                                <button key={u.id} onClick={() => setSelectedUser(u)}
-                                    className={cn("w-full flex items-center gap-3 px-4 py-3 text-left transition-colors border-b border-zinc-50 last:border-0",
-                                        selectedUser?.id === u.id ? "bg-[#eef2fb]" : "hover:bg-zinc-50")}>
-                                    <div className="size-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ background: BRAND }}>
-                                        {u.avatarInitials}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className={cn("text-[12px] font-semibold truncate", selectedUser?.id === u.id ? "text-[#3A63C2]" : "text-zinc-700")}>{u.name}</p>
-                                        <p className="text-[10px] text-zinc-400 truncate">{roleLabel(u.role)}</p>
-                                    </div>
-                                    <span className="text-[10px] text-zinc-400 shrink-0">{(assignments[u.id] ?? []).length}</span>
-                                </button>
-                            ))}
+                        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+                            {filteredUsers.length === 0 ? (
+                                <div className="py-8 text-center px-4">
+                                    <p className="text-[12px] text-zinc-400">No staff found</p>
+                                </div>
+                            ) : (
+                                filteredUsers.map(u => (
+                                    <button key={u.id} onClick={() => setSelectedUser(u)}
+                                        className={cn("w-full flex items-center gap-3 px-4 py-3 text-left transition-colors border-b border-zinc-50 last:border-0",
+                                            selectedUser?.id === u.id ? "bg-[#eef2fb]" : "hover:bg-zinc-50")}>
+                                        <div className="size-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ background: BRAND }}>
+                                            {u.avatarInitials}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className={cn("text-[12px] font-semibold truncate", selectedUser?.id === u.id ? "text-[#3A63C2]" : "text-zinc-800")}>{u.name}</p>
+                                            <p className="text-[10px] text-zinc-400 truncate">{u.email}</p>
+                                        </div>
+                                        <div className="shrink-0"><StatusBadge status={u.status} /></div>
+                                    </button>
+                                ))
+                            )}
                         </div>
                     </div>
 
-                    {/* Course assignment panel */}
-                    <div className="flex-1 bg-white rounded-2xl border border-zinc-100 overflow-hidden flex flex-col">
-                        {!selectedUser
-                            ? <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center">
-                                <GraduationCap className="size-10 text-zinc-200" />
-                                <p className="text-[13px] text-zinc-400 font-medium">Select a staff member to assign courses</p>
+                    {/* Right: User Profile & Assignments */}
+                    <div className="flex-1 bg-white rounded-2xl border border-zinc-100 overflow-hidden flex flex-col min-w-0">
+                        {!selectedUser ? (
+                            <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center">
+                                <Users className="size-10 text-zinc-200" />
+                                <div>
+                                    <p className="text-[14px] font-bold text-zinc-800">Select a team member</p>
+                                    <p className="text-[12px] text-zinc-400 mt-1">Manage their roles and assign courses</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 mt-4 text-left">
+                                    <div className="rounded-xl border border-zinc-100 px-4 py-3 bg-zinc-50/50 min-w-32">
+                                        <p className="text-[20px] font-bold text-zinc-900">{users.length}</p>
+                                        <p className="text-[11px] font-medium text-zinc-400">Total Staff</p>
+                                    </div>
+                                    <div className="rounded-xl border border-zinc-100 px-4 py-3 bg-zinc-50/50 min-w-32">
+                                        <p className="text-[20px] font-bold text-[#059669]">{users.filter(u => u.status === "active").length}</p>
+                                        <p className="text-[11px] font-medium text-zinc-400">Active</p>
+                                    </div>
+                                </div>
                             </div>
-                            : <>
-                                <div className="px-5 py-4 border-b border-zinc-100 flex items-center gap-3">
-                                    <div className="size-8 rounded-full flex items-center justify-center text-[11px] font-bold text-white shrink-0" style={{ background: BRAND }}>
-                                        {selectedUser.avatarInitials}
+                        ) : (
+                            <div className="flex-1 flex flex-col min-h-0">
+                                <div className="px-6 py-5 border-b border-zinc-100 bg-zinc-50/30 shrink-0 flex items-start justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="size-12 rounded-full flex items-center justify-center text-[15px] font-bold text-white shadow-sm shrink-0" style={{ background: BRAND }}>
+                                            {selectedUser.avatarInitials}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <h2 className="text-[16px] font-bold text-zinc-900 truncate">{selectedUser.name}</h2>
+                                            <p className="text-[12px] text-zinc-500 truncate">{selectedUser.email}</p>
+                                            <div className="mt-1.5"><StatusBadge status={selectedUser.status} /></div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-[13px] font-bold text-zinc-900">{selectedUser.name}</p>
-                                        <p className="text-[11px] text-zinc-400">{roleLabel(selectedUser.role)} · {(assignments[selectedUser.id] ?? []).length} assigned</p>
-                                    </div>
-                                </div>
-                                <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                                    {courses.map(c => {
-                                        const assigned = (assignments[selectedUser.id] ?? []).includes(c.id);
-                                        return (
-                                            <div key={c.id} onClick={() => toggleAssign(selectedUser.id, c.id)}
-                                                className={cn("flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all",
-                                                    assigned ? "border-[#3A63C2] bg-[#eef2fb]" : "border-zinc-100 hover:border-zinc-200 hover:bg-zinc-50")}>
-                                                <div className="size-9 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ background: `${c.color}15` }}>
-                                                    {c.thumbnail}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className={cn("text-[13px] font-semibold truncate", assigned ? "text-[#3A63C2]" : "text-zinc-700")}>{c.title}</p>
-                                                    <p className="text-[11px] text-zinc-400">{c.modules.length} modules</p>
-                                                </div>
-                                                <div className={cn("size-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all", assigned ? "border-[#3A63C2]" : "border-zinc-300")}>
-                                                    {assigned && <div className="size-2.5 rounded-full" style={{ background: BRAND }} />}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                                <div className="px-5 py-3 border-t border-zinc-100">
-                                    <button className="w-full py-2 text-[13px] font-semibold text-white rounded-xl hover:opacity-90 transition-opacity" style={{ background: BRAND }}>
-                                        Save Assignments
+                                    <button onClick={saveProfile} disabled={saving || (!hasChanges && !savedFlag)}
+                                        className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[12px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shrink-0"
+                                        style={{ background: BRAND }}>
+                                        {saving ? <Loader2 className="size-3.5 animate-spin" /> : savedFlag ? <CheckCircle2 className="size-3.5" /> : <Save className="size-3.5" />}
+                                        {saving ? "Saving…" : savedFlag ? "Saved!" : "Save Profile"}
                                     </button>
                                 </div>
-                            </>
-                        }
+                                <div className="flex-1 overflow-y-auto px-6 py-5 space-y-8">
+                                    {/* Roles Section */}
+                                    <section>
+                                        <h3 className="text-[13px] font-bold text-zinc-900 mb-3 flex items-center gap-1.5">
+                                            <Shield className="size-4 text-zinc-400" /> Roles & Access
+                                        </h3>
+                                        <div className="bg-white border border-zinc-100 rounded-xl p-4 shadow-sm">
+                                            <div className="flex flex-wrap gap-2 mb-4">
+                                                {PREDEFINED_ROLES.map(r => (
+                                                    <button key={r.value} onClick={() => toggleRole(r.value)}
+                                                        className={cn("text-[11px] font-semibold rounded-full px-3 py-1.5 transition-all border",
+                                                            editedRoles.includes(r.value) ? "bg-[#3A63C2] text-white border-[#3A63C2] shadow-sm shadow-blue-100" : "bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-zinc-300 hover:bg-zinc-100")}>
+                                                        {r.label}
+                                                    </button>
+                                                ))}
+                                                {editedRoles.filter(er => !PREDEFINED_ROLES.find(pr => pr.value === er)).map(customRole => (
+                                                    <button key={customRole} onClick={() => toggleRole(customRole)}
+                                                        className="text-[11px] font-semibold rounded-full px-3 py-1.5 transition-all border bg-[#3A63C2] text-white border-[#3A63C2] shadow-sm shadow-blue-100 flex items-center gap-1">
+                                                        {customRole.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())} <X className="size-3 text-white/70" />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <div className="flex gap-2 max-w-sm relative">
+                                                <input value={customRoleInput} onChange={e => setCustomRoleInput(e.target.value)}
+                                                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCustomRole(); } }}
+                                                    placeholder="Add custom role..."
+                                                    className="flex-1 h-9 px-3 text-[12px] rounded-lg border border-zinc-200 bg-zinc-50 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                                                    style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
+                                                <button onClick={addCustomRole}
+                                                    className="h-9 px-4 text-[12px] font-semibold bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors overflow-hidden whitespace-nowrap shrink-0">
+                                                    Add Role
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    {/* Assigned Courses Section */}
+                                    <section>
+                                        <h3 className="text-[13px] font-bold text-zinc-900 mb-3 flex items-center gap-1.5">
+                                            <GraduationCap className="size-4 text-zinc-400" /> Assigned Learning Paths
+                                        </h3>
+                                        {courses.length === 0 ? (
+                                            <p className="text-[12px] text-zinc-400 bg-zinc-50 border border-zinc-100 rounded-xl p-4 text-center">No courses available.</p>
+                                        ) : (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                {courses.map(c => {
+                                                    const assigned = editedCourses.includes(c.id);
+                                                    return (
+                                                        <div key={c.id} onClick={() => toggleCourse(c.id)}
+                                                            className={cn("flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all",
+                                                                assigned ? "border-[#3A63C2] bg-[#eef2fb]" : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50")}>
+                                                            <div className="size-9 rounded-xl flex items-center justify-center text-lg shrink-0" style={{ background: `${c.color}15` }}>{c.thumbnail}</div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className={cn("text-[12px] font-bold truncate", assigned ? "text-[#3A63C2]" : "text-zinc-700")}>{c.title}</p>
+                                                                <p className="text-[10px] text-zinc-400">{c.modules.length} modules</p>
+                                                            </div>
+                                                            <div className={cn("size-5 rounded-full border-[1.5px] shadow-sm flex items-center justify-center shrink-0 transition-all", assigned ? "border-[#3A63C2] bg-[#3A63C2]" : "border-zinc-300 bg-white")}>
+                                                                {assigned && <Check className="size-3 text-white" strokeWidth={3} />}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </section>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -1064,7 +1126,7 @@ function TrainTab() {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type Tab = "courses" | "users" | "assign" | "train";
+type Tab = "courses" | "team" | "train";
 
 export default function ManagePage() {
     const [tab, setTab] = useState<Tab>("courses");
@@ -1072,8 +1134,7 @@ export default function ManagePage() {
 
     const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
         { id: "courses", label: "Courses", icon: <BookOpen className="size-4" /> },
-        { id: "users", label: "Team", icon: <Users className="size-4" /> },
-        { id: "assign", label: "Assign", icon: <GraduationCap className="size-4" /> },
+        { id: "team", label: "Team / Roles", icon: <Users className="size-4" /> },
         { id: "train", label: "Train AI", icon: <Brain className="size-4" /> },
     ];
 
@@ -1096,13 +1157,12 @@ export default function ManagePage() {
                 <header className="flex shrink-0 items-center gap-3 border-b border-zinc-100 bg-white px-6 h-14">
                     <LayoutDashboard className="size-4" style={{ color: BRAND }} />
                     <span className="text-[14px] font-bold text-zinc-800">
-                        {tab === "train" ? "Train AI" : tab === "assign" ? "Assign Courses" : tab === "users" ? "Team Management" : "Courses"}
+                        {tab === "train" ? "Train AI" : tab === "team" ? "Team / Roles" : "Courses"}
                     </span>
                 </header>
 
                 {tab === "courses" && <CoursesTab />}
-                {tab === "users" && <UsersTab />}
-                {tab === "assign" && <AssignTab />}
+                {tab === "team" && <TeamTab />}
                 {tab === "train" && <TrainTab />}
             </main>
         </div>
