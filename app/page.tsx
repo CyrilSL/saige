@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, BookOpen, Home, Settings, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Sparkles, BookOpen, Home, Settings, ArrowRight, CheckCircle2, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const BRAND = "#3A63C2";
@@ -53,6 +53,8 @@ export default function HomePage() {
           <NavItem icon={<Home className="size-4" />} label="Home" href="/" active />
           <NavItem icon={<Sparkles className="size-4" />} label="Ask Saige" href="/ask" />
           <NavItem icon={<BookOpen className="size-4" />} label="Learn" href="/learn" />
+          <div className="mx-0 mt-1 mb-0.5 h-px bg-zinc-100" />
+          <NavItem icon={<LayoutDashboard className="size-4" />} label="Manage" href="/manage" />
         </nav>
 
         <div className="mt-auto border-t border-zinc-100 p-3 flex items-center gap-2.5">
