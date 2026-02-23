@@ -3,11 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import {
     BookOpen, Users, Brain, LayoutDashboard, Sparkles,
-    Plus, Search, MoreHorizontal, FileText, Trash2, Edit3,
+    Plus, Search, FileText, Trash2, Edit3,
     Upload, X, GraduationCap, UserPlus, Globe, Lock, Loader2,
-    ClipboardList,
+    ClipboardList, ArrowLeft, CheckCircle2, Eye, EyeOff, Save,
+    ChevronDown, ChevronUp,
 } from "lucide-react";
-import { QuestionnaireBuilder } from "@/components/questionnaire-builder";
 import { cn } from "@/lib/utils";
 import { CATEGORIES } from "@/lib/manage-data";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -105,97 +105,40 @@ const PREDEFINED_ROLES = [
     { label: "Hygiene", value: "hygiene" },
 ];
 
-// ─── Unified course modal (create + edit) ─────────────────────────────────────
+// ─── Quick-create Course Modal ────────────────────────────────────────────────
 
-function CourseModal({
-    courseToEdit, onClose, onSave,
-}: {
-    courseToEdit?: DBCourse;
-    onClose: () => void;
-    onSave: (c: DBCourse) => void;
-}) {
-    const isEdit = !!courseToEdit;
-
-    const [title, setTitle] = useState(courseToEdit?.title ?? "");
-    const [subtitle, setSubtitle] = useState(courseToEdit?.subtitle ?? "");
-    const [category, setCategory] = useState(courseToEdit?.category ?? "front-office");
-    const [roles, setRoles] = useState<string[]>(
-        courseToEdit?.assignedRoles
-            ? courseToEdit.assignedRoles.split(",").map(r => r.trim()).filter(Boolean)
-            : []
-    );
-    const [customRoleInput, setCustomRoleInput] = useState("");
-    const [status, setStatus] = useState<"draft" | "published">(
-        (courseToEdit?.status as any) ?? "draft"
-    );
-    const [thumbnail, setThumbnail] = useState(courseToEdit?.thumbnail ?? "📚");
+function CreateCourseModal({ onClose, onCreated }: { onClose: () => void; onCreated: (c: DBCourse) => void }) {
+    const [title, setTitle] = useState("");
+    const [thumbnail, setThumbnail] = useState("📚");
+    const [category, setCategory] = useState("front-office");
     const [saving, setSaving] = useState(false);
     const emojis = ["📚", "🗂️", "🧾", "💬", "🦷", "🪥", "📊", "🛡️", "🔬", "💡", "🎯", "📋"];
     const selectedCat = CATEGORIES.find(c => c.id === category);
 
-    function toggleRole(value: string) {
-        setRoles(prev => prev.includes(value) ? prev.filter(x => x !== value) : [...prev, value]);
-    }
-
-    function addCustomRole() {
-        const v = customRoleInput.trim().toLowerCase().replace(/\s+/g, "_");
-        if (!v || roles.includes(v)) { setCustomRoleInput(""); return; }
-        setRoles(prev => [...prev, v]);
-        setCustomRoleInput("");
-    }
-
-    async function handleSave() {
+    async function handleCreate() {
         if (!title.trim()) return;
         setSaving(true);
         try {
-            const payload = {
-                title: title.trim(),
-                subtitle: subtitle.trim(),
-                category,
-                status,
-                thumbnail,
-                color: selectedCat?.color ?? BRAND,
-                assignedRoles: roles,
-            };
-
-            let result: DBCourse;
-            if (isEdit && courseToEdit) {
-                const res = await fetch(`/api/manage/courses/${courseToEdit.id}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                });
-                if (!res.ok) throw new Error("Failed to update");
-                const updated = await res.json();
-                result = { ...courseToEdit, ...updated };
-            } else {
-                const res = await fetch("/api/manage/courses", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                });
-                if (!res.ok) throw new Error("Failed to create");
-                result = await res.json();
-            }
-
-            onSave(result);
-            onClose();
-        } finally {
-            setSaving(false);
-        }
+            const res = await fetch("/api/manage/courses", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title: title.trim(), subtitle: "", category, status: "draft", thumbnail, color: selectedCat?.color ?? BRAND, assignedRoles: [] }),
+            });
+            if (!res.ok) throw new Error("Failed");
+            onCreated(await res.json());
+        } finally { setSaving(false); }
     }
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
                 <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
-                    <p className="text-[15px] font-bold text-zinc-900">{isEdit ? "Edit Course" : "Create New Course"}</p>
+                    <p className="text-[15px] font-bold text-zinc-900">New Course</p>
                     <button onClick={onClose} className="size-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"><X className="size-4" /></button>
                 </div>
-                <div className="px-5 py-4 space-y-4 max-h-[72vh] overflow-y-auto">
-                    {/* Thumbnail */}
+                <div className="px-5 py-4 space-y-4">
                     <div>
-                        <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-2 block">Thumbnail</label>
+                        <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-2 block">Icon</label>
                         <div className="flex flex-wrap gap-2">
                             {emojis.map(e => (
                                 <button key={e} onClick={() => setThumbnail(e)}
@@ -206,21 +149,13 @@ function CourseModal({
                             ))}
                         </div>
                     </div>
-                    {/* Title */}
                     <div>
                         <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-1.5 block">Course Title *</label>
-                        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Front Office Mastery"
+                        <input autoFocus value={title} onChange={e => setTitle(e.target.value)} onKeyDown={e => e.key === "Enter" && handleCreate()}
+                            placeholder="e.g. Front Office Mastery"
                             className="w-full h-9 px-3 text-[13px] rounded-xl border border-zinc-200 bg-zinc-50 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
                             style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
                     </div>
-                    {/* Subtitle */}
-                    <div>
-                        <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-1.5 block">Description</label>
-                        <textarea value={subtitle} onChange={e => setSubtitle(e.target.value)} placeholder="Brief course description..." rows={2}
-                            className="w-full px-3 py-2 text-[13px] rounded-xl border border-zinc-200 bg-zinc-50 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all resize-none"
-                            style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
-                    </div>
-                    {/* Category */}
                     <div>
                         <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-1.5 block">Category</label>
                         <select value={category} onChange={e => setCategory(e.target.value)}
@@ -229,68 +164,14 @@ function CourseModal({
                             {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                         </select>
                     </div>
-                    {/* Assign to Roles */}
-                    <div>
-                        <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-2 block">Assign to Roles</label>
-                        <div className="flex flex-wrap gap-2 mb-2">
-                            {PREDEFINED_ROLES.map(r => {
-                                const active = roles.includes(r.value);
-                                return (
-                                    <button key={r.value} onClick={() => toggleRole(r.value)}
-                                        className={cn("text-[12px] font-medium rounded-xl px-3 py-1.5 border transition-all",
-                                            active ? "border-transparent text-white" : "border-zinc-200 text-zinc-600 hover:border-zinc-300")}
-                                        style={active ? { background: BRAND } : undefined}>
-                                        {r.label}
-                                    </button>
-                                );
-                            })}
-                            {/* Custom roles already added */}
-                            {roles.filter(r => !PREDEFINED_ROLES.map(p => p.value).includes(r)).map(r => (
-                                <button key={r} onClick={() => toggleRole(r)}
-                                    className="text-[12px] font-medium rounded-xl px-3 py-1.5 border-transparent text-white transition-all flex items-center gap-1"
-                                    style={{ background: "#7C3AED" }}>
-                                    {r.replace(/_/g, " ")}
-                                    <X className="size-3" />
-                                </button>
-                            ))}
-                        </div>
-                        {/* Add custom role */}
-                        <div className="flex gap-2">
-                            <input
-                                value={customRoleInput}
-                                onChange={e => setCustomRoleInput(e.target.value)}
-                                onKeyDown={e => e.key === "Enter" && addCustomRole()}
-                                placeholder="Add custom role… (press Enter)"
-                                className="flex-1 h-8 px-3 text-[12px] rounded-xl border border-zinc-200 bg-zinc-50 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-                                style={{ "--tw-ring-color": BRAND } as React.CSSProperties}
-                            />
-                            <button onClick={addCustomRole}
-                                className="h-8 px-3 text-[12px] font-semibold text-white rounded-xl hover:opacity-90 transition-opacity"
-                                style={{ background: BRAND }}>
-                                <Plus className="size-3.5" />
-                            </button>
-                        </div>
-                    </div>
-                    {/* Status */}
-                    <div>
-                        <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-2 block">Status</label>
-                        <div className="flex gap-2">
-                            {(["draft", "published"] as const).map(s => (
-                                <button key={s} onClick={() => setStatus(s)}
-                                    className={cn("flex-1 rounded-xl py-2 text-[12px] font-semibold border capitalize transition-all",
-                                        status === s ? "border-transparent text-white" : "border-zinc-200 text-zinc-500 hover:border-zinc-300")}
-                                    style={status === s ? { background: s === "published" ? "#059669" : "#B45309" } : undefined}>{s}</button>
-                            ))}
-                        </div>
-                    </div>
                 </div>
                 <div className="px-5 py-4 border-t border-zinc-100 flex justify-end gap-2">
                     <button onClick={onClose} className="px-4 py-2 text-[13px] font-medium text-zinc-500 hover:text-zinc-800 rounded-xl hover:bg-zinc-100 transition-colors">Cancel</button>
-                    <button onClick={handleSave} disabled={!title.trim() || saving}
+                    <button onClick={handleCreate} disabled={!title.trim() || saving}
                         className="px-4 py-2 text-[13px] font-semibold text-white rounded-xl transition-opacity hover:opacity-90 disabled:opacity-40 flex items-center gap-1.5"
                         style={{ background: BRAND }}>
                         {saving && <Loader2 className="size-3.5 animate-spin" />}
-                        {isEdit ? "Save Changes" : "Create Course"}
+                        Create & Edit
                     </button>
                 </div>
             </div>
@@ -298,33 +179,414 @@ function CourseModal({
     );
 }
 
-// ─── Courses Tab ──────────────────────────────────────────────────────────────
+// ─── Inline Question Card ─────────────────────────────────────────────────────
+
+interface QuestionDraft {
+    _id: string;
+    text: string;
+    optionA: string; optionB: string; optionC: string; optionD: string;
+    correctOption: "A" | "B" | "C" | "D";
+    explanation: string;
+}
+interface QnDraft {
+    id?: number;
+    title: string; description: string; passingScore: number;
+    questions: QuestionDraft[];
+}
+const OPT_LABELS = ["A", "B", "C", "D"] as const;
+function emptyQ(): QuestionDraft {
+    return { _id: crypto.randomUUID(), text: "", optionA: "", optionB: "", optionC: "", optionD: "", correctOption: "A", explanation: "" };
+}
+function emptyQn(): QnDraft { return { title: "", description: "", passingScore: 70, questions: [emptyQ()] }; }
+
+function InlineQuestionCard({ q, index, onChange, onDelete, isOnly }: {
+    q: QuestionDraft; index: number;
+    onChange: (u: QuestionDraft) => void;
+    onDelete: () => void; isOnly: boolean;
+}) {
+    const [open, setOpen] = useState(true);
+    const complete = q.text.trim() && q.optionA.trim() && q.optionB.trim() && q.optionC.trim() && q.optionD.trim();
+    return (
+        <div className={cn("rounded-xl border bg-white overflow-hidden", complete ? "border-zinc-200" : "border-amber-200")}>
+            <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 transition-colors text-left" onClick={() => setOpen(v => !v)}>
+                <span className={cn("size-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0",
+                    complete ? "bg-[#eef2fb] text-[#3A63C2]" : "bg-amber-100 text-amber-600")}>{index + 1}</span>
+                <p className="flex-1 text-[13px] font-medium text-zinc-700 truncate">
+                    {q.text.trim() || <span className="text-zinc-300 italic">Question text…</span>}
+                </p>
+                <div className="flex items-center gap-2 shrink-0">
+                    {!isOnly && <span onClick={e => { e.stopPropagation(); onDelete(); }}
+                        className="size-7 rounded-lg hover:bg-red-50 hover:text-red-500 text-zinc-300 flex items-center justify-center transition-colors">
+                        <Trash2 className="size-3.5" /></span>}
+                    {open ? <ChevronUp className="size-4 text-zinc-300" /> : <ChevronDown className="size-4 text-zinc-300" />}
+                </div>
+            </button>
+            {open && (
+                <div className="px-4 pb-4 pt-1 space-y-3 border-t border-zinc-100">
+                    <textarea placeholder="Enter your question…" value={q.text} onChange={e => onChange({ ...q, text: e.target.value })}
+                        className="w-full text-[13px] rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2.5 resize-none focus:outline-none focus:ring-2 focus:border-transparent"
+                        style={{ "--tw-ring-color": BRAND } as React.CSSProperties} rows={2} />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {OPT_LABELS.map(opt => {
+                            const key = `option${opt}` as keyof QuestionDraft;
+                            const isCorrect = q.correctOption === opt;
+                            return (
+                                <div key={opt} className={cn("flex items-center gap-2 rounded-lg border px-3 py-2 transition-all",
+                                    isCorrect ? "border-emerald-300 bg-emerald-50" : "border-zinc-200 bg-zinc-50")}>
+                                    <button type="button" onClick={() => onChange({ ...q, correctOption: opt })}
+                                        className={cn("size-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
+                                            isCorrect ? "border-emerald-500 bg-emerald-500" : "border-zinc-300 hover:border-emerald-400")}>
+                                        {isCorrect && <CheckCircle2 className="size-3 text-white" />}
+                                    </button>
+                                    <span className="text-[10px] font-bold text-zinc-400 shrink-0">{opt}</span>
+                                    <input placeholder={`Option ${opt}`} value={q[key] as string}
+                                        onChange={e => onChange({ ...q, [key]: e.target.value })}
+                                        className="flex-1 text-[12px] bg-transparent focus:outline-none placeholder:text-zinc-300 text-zinc-700 min-w-0" />
+                                </div>
+                            );
+                        })}
+                    </div>
+                    <input placeholder="Explanation (optional) — shown after quiz" value={q.explanation}
+                        onChange={e => onChange({ ...q, explanation: e.target.value })}
+                        className="w-full text-[12px] rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 focus:outline-none focus:ring-2 focus:border-transparent text-zinc-500"
+                        style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── Inline Quiz Editor ───────────────────────────────────────────────────────
+
+function InlineQuizEditor({ courseId }: { courseId: number }) {
+    const [saved, setSaved] = useState<Array<{ id: number; title: string; description: string; passingScore: number; questions: any[] }>>([]);
+    const [loading, setLoading] = useState(true);
+    const [draft, setDraft] = useState<QnDraft | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [deletingId, setDeletingId] = useState<number | null>(null);
+
+    useEffect(() => {
+        fetch(`/api/manage/questionnaires?courseId=${courseId}`)
+            .then(r => r.json()).then(d => setSaved(Array.isArray(d) ? d : []))
+            .finally(() => setLoading(false));
+    }, [courseId]);
+
+    function updateQ(i: number, u: QuestionDraft) {
+        if (!draft) return;
+        const qs = [...draft.questions]; qs[i] = u; setDraft({ ...draft, questions: qs });
+    }
+
+    async function saveQn() {
+        if (!draft) return;
+        setSaving(true);
+        try {
+            const payload = { courseId, title: draft.title, description: draft.description, passingScore: draft.passingScore, questions: draft.questions };
+            const res = draft.id
+                ? await fetch(`/api/manage/questionnaires/${draft.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
+                : await fetch("/api/manage/questionnaires", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+            const result = await res.json();
+            setSaved(p => draft.id ? p.map(s => s.id === result.id ? result : s) : [result, ...p]);
+            setDraft(null);
+        } finally { setSaving(false); }
+    }
+
+    async function deleteQn(id: number) {
+        setDeletingId(id);
+        await fetch(`/api/manage/questionnaires/${id}`, { method: "DELETE" });
+        setSaved(p => p.filter(s => s.id !== id));
+        setDeletingId(null);
+    }
+
+    const isValid = draft && draft.title.trim() && draft.questions.every(q =>
+        q.text.trim() && q.optionA.trim() && q.optionB.trim() && q.optionC.trim() && q.optionD.trim());
+
+    if (draft) return (
+        <div className="space-y-4">
+            <div className="flex items-center justify-between">
+                <h3 className="text-[14px] font-bold text-zinc-800">{draft.id ? "Edit Quiz" : "New Quiz"}</h3>
+                <button onClick={() => setDraft(null)} className="text-[12px] text-zinc-400 hover:text-zinc-700 transition-colors">← Back to quizzes</button>
+            </div>
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 space-y-3">
+                <div className="flex gap-3">
+                    <div className="flex-1">
+                        <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide block mb-1">Quiz Title *</label>
+                        <input placeholder="e.g. End-of-Module Quiz" value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })}
+                            className="w-full h-9 px-3 text-[13px] rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:border-transparent"
+                            style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
+                    </div>
+                    <div className="w-24">
+                        <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide block mb-1">Pass %</label>
+                        <input type="number" min={0} max={100} value={draft.passingScore}
+                            onChange={e => setDraft({ ...draft, passingScore: parseInt(e.target.value) || 70 })}
+                            className="w-full h-9 px-3 text-[13px] rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:border-transparent"
+                            style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
+                    </div>
+                </div>
+                <input placeholder="Description (optional)" value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })}
+                    className="w-full h-9 px-3 text-[13px] rounded-lg border border-zinc-200 bg-white focus:outline-none focus:ring-2 focus:border-transparent"
+                    style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
+            </div>
+            <div className="space-y-2.5">
+                {draft.questions.map((q, i) => (
+                    <InlineQuestionCard key={q._id} q={q} index={i}
+                        onChange={u => updateQ(i, u)}
+                        onDelete={() => setDraft({ ...draft, questions: draft.questions.filter((_, j) => j !== i) })}
+                        isOnly={draft.questions.length === 1} />
+                ))}
+                <button onClick={() => setDraft({ ...draft, questions: [...draft.questions, emptyQ()] })}
+                    className="w-full rounded-xl border border-dashed border-zinc-300 py-2.5 text-[13px] font-medium text-zinc-400 hover:border-[#3A63C2] hover:text-[#3A63C2] hover:bg-[#eef2fb] transition-all flex items-center justify-center gap-1.5">
+                    <Plus className="size-4" /> Add Question
+                </button>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+                <button onClick={() => setDraft(null)} className="px-4 py-2 text-[13px] text-zinc-400 hover:text-zinc-700 rounded-xl hover:bg-zinc-100 transition-colors">Cancel</button>
+                <button onClick={saveQn} disabled={!isValid || saving}
+                    className="flex items-center gap-1.5 px-5 py-2 text-[13px] font-semibold text-white rounded-xl transition-opacity hover:opacity-90 disabled:opacity-40"
+                    style={{ background: BRAND }}>
+                    <Save className="size-3.5" />{saving ? "Saving…" : (draft.id ? "Save Changes" : "Create Quiz")}
+                </button>
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="space-y-3">
+            <div className="flex items-center justify-between">
+                <h3 className="text-[14px] font-bold text-zinc-800">Quizzes <span className="text-zinc-400 font-normal text-[12px]">({saved.length})</span></h3>
+                <button onClick={() => setDraft(emptyQn())}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 text-[12px] font-semibold text-white rounded-xl hover:opacity-90 transition-opacity"
+                    style={{ background: BRAND }}>
+                    <Plus className="size-3.5" /> New Quiz
+                </button>
+            </div>
+            {loading ? (
+                <div className="flex items-center justify-center py-8"><Loader2 className="size-5 text-zinc-300 animate-spin" /></div>
+            ) : saved.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center gap-2 rounded-xl border border-dashed border-zinc-200 bg-zinc-50">
+                    <ClipboardList className="size-8 text-zinc-200" />
+                    <p className="text-[13px] text-zinc-400 font-medium">No quizzes yet</p>
+                    <p className="text-[12px] text-zinc-300">Create your first quiz for this course</p>
+                </div>
+            ) : (
+                <div className="space-y-2">
+                    {saved.map(qn => (
+                        <div key={qn.id} className="flex items-center gap-4 rounded-xl border border-zinc-200 bg-white px-4 py-3.5 group">
+                            <div className="size-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#eef2fb" }}>
+                                <ClipboardList className="size-4" style={{ color: BRAND }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-[13px] font-semibold text-zinc-800 truncate">{qn.title}</p>
+                                <p className="text-[11px] text-zinc-400">{qn.questions.length} questions · Pass at {qn.passingScore}%</p>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => setDraft({
+                                    id: qn.id, title: qn.title, description: qn.description, passingScore: qn.passingScore,
+                                    questions: qn.questions.map((q: any) => ({ _id: String(q.id), text: q.text, optionA: q.optionA, optionB: q.optionB, optionC: q.optionC, optionD: q.optionD, correctOption: q.correctOption, explanation: q.explanation }))
+                                })} className="text-[12px] font-medium px-3 py-1.5 rounded-lg border border-zinc-200 hover:border-[#3A63C2] hover:text-[#3A63C2] transition-all">Edit</button>
+                                <button onClick={() => deleteQn(qn.id)} disabled={deletingId === qn.id}
+                                    className="size-7 rounded-lg hover:bg-red-50 hover:text-red-500 text-zinc-300 flex items-center justify-center transition-colors disabled:opacity-50">
+                                    <Trash2 className="size-3.5" />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── Full-screen Course Editor ────────────────────────────────────────────────
+
+function CourseEditor({ course: initial, onBack, onDelete }: {
+    course: DBCourse;
+    onBack: (updated: DBCourse) => void;
+    onDelete: (id: number) => void;
+}) {
+    const [title, setTitle] = useState(initial.title);
+    const [subtitle, setSubtitle] = useState(initial.subtitle ?? "");
+    const [category, setCategory] = useState(initial.category);
+    const [thumbnail, setThumbnail] = useState(initial.thumbnail ?? "📚");
+    const [roles, setRoles] = useState<string[]>(
+        initial.assignedRoles ? initial.assignedRoles.split(",").map(r => r.trim()).filter(Boolean) : []
+    );
+    const [customRoleInput, setCustomRoleInput] = useState("");
+    const [status, setStatus] = useState<"draft" | "published">((initial.status as any) ?? "draft");
+    const [saving, setSaving] = useState(false);
+    const [savedFlag, setSavedFlag] = useState(false);
+    const emojis = ["📚", "🗂️", "🧾", "💬", "🦷", "🪥", "📊", "🛡️", "🔬", "💡", "🎯", "📋"];
+    const selectedCat = CATEGORIES.find(c => c.id === category);
+
+    function toggleRole(v: string) { setRoles(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v]); setSavedFlag(false); }
+    function addCustomRole() {
+        const v = customRoleInput.trim().toLowerCase().replace(/\s+/g, "_");
+        if (!v || roles.includes(v)) { setCustomRoleInput(""); return; }
+        setRoles(prev => [...prev, v]); setCustomRoleInput(""); setSavedFlag(false);
+    }
+
+    async function save() {
+        setSaving(true);
+        try {
+            const res = await fetch(`/api/manage/courses/${initial.id}`, {
+                method: "PATCH", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title, subtitle, category, status, thumbnail, color: selectedCat?.color ?? BRAND, assignedRoles: roles }),
+            });
+            if (res.ok) { setSavedFlag(true); setTimeout(() => setSavedFlag(false), 2000); }
+        } finally { setSaving(false); }
+    }
+
+    async function togglePublish() {
+        const next = status === "published" ? "draft" : "published";
+        setStatus(next);
+        await fetch(`/api/manage/courses/${initial.id}`, {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title, subtitle, category, status: next, thumbnail, color: selectedCat?.color ?? BRAND, assignedRoles: roles }),
+        });
+    }
+
+    async function handleDelete() {
+        if (!confirm("Delete this course? This cannot be undone.")) return;
+        await fetch(`/api/manage/courses/${initial.id}`, { method: "DELETE" });
+        onDelete(initial.id);
+    }
+
+    const isPublished = status === "published";
+
+    return (
+        <div className="flex-1 overflow-hidden flex flex-col">
+            {/* Top bar */}
+            <div className="flex items-center gap-3 px-6 py-3.5 bg-white border-b border-zinc-100 shrink-0">
+                <button
+                    onClick={() => onBack({ ...initial, title, subtitle, category, status, thumbnail, color: selectedCat?.color ?? BRAND, assignedRoles: roles.join(",") })}
+                    className="flex items-center gap-1.5 text-[13px] text-zinc-400 hover:text-zinc-800 transition-colors">
+                    <ArrowLeft className="size-4" /> Courses
+                </button>
+                <span className="text-zinc-200">/</span>
+                <span className="text-[13px] font-semibold text-zinc-800 truncate max-w-[220px]">{title || "Untitled"}</span>
+                <div className="flex-1" />
+                <button onClick={togglePublish}
+                    className={cn("flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-semibold border transition-all",
+                        isPublished ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100" : "bg-zinc-50 border-zinc-200 text-zinc-600 hover:bg-zinc-100")}>
+                    {isPublished ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+                    {isPublished ? "Published" : "Draft — Publish"}
+                </button>
+                <button onClick={save} disabled={saving}
+                    className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                    style={{ background: BRAND }}>
+                    {saving ? <Loader2 className="size-3.5 animate-spin" /> : savedFlag ? <CheckCircle2 className="size-3.5" /> : <Save className="size-3.5" />}
+                    {saving ? "Saving…" : savedFlag ? "Saved!" : "Save"}
+                </button>
+            </div>
+
+            {/* Two-column body */}
+            <div className="flex-1 overflow-hidden flex">
+                {/* Left: Settings */}
+                <div className="w-80 shrink-0 border-r border-zinc-100 overflow-y-auto px-5 py-5 space-y-5 bg-white">
+                    <div>
+                        <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide block mb-2">Icon</label>
+                        <div className="flex flex-wrap gap-2">
+                            {emojis.map(e => (
+                                <button key={e} onClick={() => { setThumbnail(e); setSavedFlag(false); }}
+                                    className={cn("size-9 rounded-xl text-xl flex items-center justify-center transition-all",
+                                        thumbnail === e ? "ring-2 scale-110" : "bg-zinc-50 hover:bg-zinc-100")}
+                                    style={thumbnail === e ? { background: `${selectedCat?.color ?? BRAND}15`, outlineColor: selectedCat?.color ?? BRAND } : undefined}
+                                >{e}</button>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide block mb-1.5">Course Title</label>
+                        <input value={title} onChange={e => { setTitle(e.target.value); setSavedFlag(false); }} placeholder="Course title"
+                            className="w-full h-9 px-3 text-[13px] rounded-xl border border-zinc-200 bg-zinc-50 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                            style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide block mb-1.5">Description</label>
+                        <textarea value={subtitle} onChange={e => { setSubtitle(e.target.value); setSavedFlag(false); }}
+                            placeholder="Brief course description…" rows={3}
+                            className="w-full px-3 py-2 text-[13px] rounded-xl border border-zinc-200 bg-zinc-50 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all resize-none"
+                            style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide block mb-1.5">Learning Category</label>
+                        <select value={category} onChange={e => { setCategory(e.target.value); setSavedFlag(false); }}
+                            className="w-full h-9 px-3 text-[13px] rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-700 focus:outline-none focus:ring-2 appearance-none cursor-pointer transition-all"
+                            style={{ "--tw-ring-color": BRAND } as React.CSSProperties}>
+                            {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wide block mb-2">Visible to Roles</label>
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                            {PREDEFINED_ROLES.map(r => {
+                                const active = roles.includes(r.value);
+                                return (
+                                    <button key={r.value} onClick={() => toggleRole(r.value)}
+                                        className={cn("text-[11px] font-medium rounded-lg px-2.5 py-1 border transition-all",
+                                            active ? "border-transparent text-white" : "border-zinc-200 text-zinc-600 hover:border-zinc-300")}
+                                        style={active ? { background: BRAND } : undefined}>{r.label}</button>
+                                );
+                            })}
+                            {roles.filter(r => !PREDEFINED_ROLES.map(p => p.value).includes(r)).map(r => (
+                                <button key={r} onClick={() => toggleRole(r)}
+                                    className="text-[11px] font-medium rounded-lg px-2.5 py-1 border-transparent text-white flex items-center gap-1"
+                                    style={{ background: "#7C3AED" }}>
+                                    {r.replace(/_/g, " ")} <X className="size-2.5" />
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex gap-1.5">
+                            <input value={customRoleInput} onChange={e => setCustomRoleInput(e.target.value)}
+                                onKeyDown={e => e.key === "Enter" && addCustomRole()}
+                                placeholder="Custom role…"
+                                className="flex-1 h-8 px-3 text-[12px] rounded-lg border border-zinc-200 bg-zinc-50 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                                style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
+                            <button onClick={addCustomRole}
+                                className="h-8 px-2.5 font-semibold text-white rounded-lg hover:opacity-90 transition-opacity"
+                                style={{ background: BRAND }}><Plus className="size-3.5" /></button>
+                        </div>
+                    </div>
+                    <div className="pt-2 border-t border-zinc-100">
+                        <button onClick={handleDelete}
+                            className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2 text-[12px] font-medium text-red-400 hover:bg-red-50 hover:text-red-600 border border-zinc-100 hover:border-red-200 transition-all">
+                            <Trash2 className="size-3.5" /> Delete Course
+                        </button>
+                    </div>
+                </div>
+
+                {/* Right: Quiz editor */}
+                <div className="flex-1 overflow-y-auto px-6 py-5 bg-[#F8F9FC]">
+                    <InlineQuizEditor courseId={initial.id} />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── Courses Tab ─────────────────────────────────────────────────────────────
 
 function CoursesTab() {
     const [courses, setCourses] = useState<DBCourse[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreate, setShowCreate] = useState(false);
-    const [editingCourse, setEditingCourse] = useState<DBCourse | null>(null);
-    const [quizCourse, setQuizCourse] = useState<DBCourse | null>(null);
+    const [selectedCourse, setSelectedCourse] = useState<DBCourse | null>(null);
     const [search, setSearch] = useState("");
 
     const load = useCallback(async () => {
         setLoading(true);
-        try {
-            const res = await fetch("/api/manage/courses");
-            const data = await res.json();
-            setCourses(data);
-        } finally {
-            setLoading(false);
-        }
+        try { const res = await fetch("/api/manage/courses"); setCourses(await res.json()); }
+        finally { setLoading(false); }
     }, []);
-
     useEffect(() => { load(); }, [load]);
 
-    async function handleDelete(id: number) {
-        if (!confirm("Delete this course? This cannot be undone.")) return;
-        await fetch(`/api/manage/courses/${id}`, { method: "DELETE" });
-        setCourses(prev => prev.filter(c => c.id !== id));
+    if (selectedCourse) {
+        return (
+            <CourseEditor
+                course={selectedCourse}
+                onBack={updated => { setCourses(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c)); setSelectedCourse(null); }}
+                onDelete={id => { setCourses(prev => prev.filter(c => c.id !== id)); setSelectedCourse(null); }}
+            />
+        );
     }
 
     const filtered = courses.filter(c => c.title.toLowerCase().includes(search.toLowerCase()));
@@ -332,23 +594,9 @@ function CoursesTab() {
     return (
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
             {showCreate && (
-                <CourseModal
+                <CreateCourseModal
                     onClose={() => setShowCreate(false)}
-                    onSave={c => { setCourses(prev => [c, ...prev]); }}
-                />
-            )}
-            {editingCourse && (
-                <CourseModal
-                    courseToEdit={editingCourse}
-                    onClose={() => setEditingCourse(null)}
-                    onSave={updated => setCourses(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c))}
-                />
-            )}
-            {quizCourse && (
-                <QuestionnaireBuilder
-                    courseId={quizCourse.id}
-                    courseTitle={quizCourse.title}
-                    onClose={() => setQuizCourse(null)}
+                    onCreated={c => { setCourses(prev => [c, ...prev]); setShowCreate(false); setSelectedCourse(c); }}
                 />
             )}
             <div className="flex items-center justify-between">
@@ -362,8 +610,6 @@ function CoursesTab() {
                     <Plus className="size-4" /> New Course
                 </button>
             </div>
-
-            {/* Stats */}
             <div className="grid grid-cols-3 gap-3">
                 {[
                     { label: "Total Courses", value: courses.length },
@@ -376,7 +622,6 @@ function CoursesTab() {
                     </div>
                 ))}
             </div>
-
             <div className="bg-white rounded-2xl border border-zinc-100 overflow-hidden">
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-zinc-100">
                     <Search className="size-3.5 text-zinc-400 shrink-0" />
@@ -389,16 +634,17 @@ function CoursesTab() {
                         <p className="text-[13px] text-zinc-400">No courses found</p>
                     </div>
                     : filtered.map(c => (
-                        <div key={c.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-zinc-50/80 transition-colors group border-b border-zinc-100 last:border-0">
+                        <div key={c.id}
+                            className="flex items-center gap-4 px-4 py-3.5 hover:bg-zinc-50/80 transition-colors cursor-pointer group border-b border-zinc-100 last:border-0"
+                            onClick={() => setSelectedCourse(c)}>
                             <div className="size-9 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ background: `${c.color}15` }}>
                                 {c.thumbnail}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-[13px] font-semibold text-zinc-800 truncate">{c.title}</p>
-                                <p className="text-[11px] text-zinc-400 truncate">{c.subtitle}</p>
+                                <p className="text-[13px] font-semibold text-zinc-800 truncate group-hover:text-[#3A63C2] transition-colors">{c.title}</p>
+                                <p className="text-[11px] text-zinc-400 truncate">{c.subtitle || "No description"}</p>
                             </div>
-                            {/* Assigned roles pills */}
-                            <div className="hidden md:flex items-center gap-1 flex-wrap max-w-[150px]">
+                            <div className="hidden md:flex items-center gap-1 flex-wrap max-w-[160px]">
                                 {(c.assignedRoles ?? "").split(",").filter(Boolean).map(r => (
                                     <span key={r} className="text-[10px] font-medium rounded-full px-2 py-0.5 bg-[#eef2fb] text-[#3A63C2]">
                                         {r.replace(/_/g, " ")}
@@ -408,30 +654,11 @@ function CoursesTab() {
                             <div className="hidden sm:flex items-center gap-3 text-[11px] text-zinc-400">
                                 {c.modules.length > 0 && <span className="flex items-center gap-1"><BookOpen className="size-3" />{c.modules.length} modules</span>}
                                 {c.modules.reduce((a, m) => a + m.lessons.length, 0) > 0 && (
-                                    <span className="flex items-center gap-1"><FileText className="size-3" />
-                                        {c.modules.reduce((a, m) => a + m.lessons.length, 0)} lessons
-                                    </span>
+                                    <span className="flex items-center gap-1"><FileText className="size-3" />{c.modules.reduce((a, m) => a + m.lessons.length, 0)} lessons</span>
                                 )}
                             </div>
                             <StatusBadge status={c.status} />
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button
-                                    onClick={() => setQuizCourse(c)}
-                                    title="Manage Quizzes"
-                                    className="size-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-[#3A63C2] hover:bg-[#eef2fb] transition-colors">
-                                    <ClipboardList className="size-3.5" />
-                                </button>
-                                <button
-                                    onClick={() => setEditingCourse(c)}
-                                    className="size-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
-                                    <Edit3 className="size-3.5" />
-                                </button>
-                                <button
-                                    onClick={() => handleDelete(c.id)}
-                                    className="size-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors">
-                                    <Trash2 className="size-3.5" />
-                                </button>
-                            </div>
+                            <ArrowLeft className="size-4 text-zinc-200 group-hover:text-[#3A63C2] rotate-180 transition-colors shrink-0" />
                         </div>
                     ))
                 }
@@ -439,6 +666,8 @@ function CoursesTab() {
         </div>
     );
 }
+
+
 
 // ─── Users Tab ────────────────────────────────────────────────────────────────
 
@@ -574,7 +803,7 @@ function UsersTab() {
                         </span>
                         <StatusBadge status={u.status} />
                         <button className="size-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors opacity-0 group-hover:opacity-100">
-                            <MoreHorizontal className="size-4" />
+                            <Edit3 className="size-4" />
                         </button>
                     </div>
                 ))}
