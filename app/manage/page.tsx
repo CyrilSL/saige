@@ -5,7 +5,9 @@ import {
     BookOpen, Users, Brain, LayoutDashboard, Sparkles,
     Plus, Search, MoreHorizontal, FileText, Trash2, Edit3,
     Upload, X, GraduationCap, UserPlus, Globe, Lock, Loader2,
+    ClipboardList,
 } from "lucide-react";
+import { QuestionnaireBuilder } from "@/components/questionnaire-builder";
 import { cn } from "@/lib/utils";
 import { CATEGORIES } from "@/lib/manage-data";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -303,6 +305,7 @@ function CoursesTab() {
     const [loading, setLoading] = useState(true);
     const [showCreate, setShowCreate] = useState(false);
     const [editingCourse, setEditingCourse] = useState<DBCourse | null>(null);
+    const [quizCourse, setQuizCourse] = useState<DBCourse | null>(null);
     const [search, setSearch] = useState("");
 
     const load = useCallback(async () => {
@@ -339,6 +342,13 @@ function CoursesTab() {
                     courseToEdit={editingCourse}
                     onClose={() => setEditingCourse(null)}
                     onSave={updated => setCourses(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c))}
+                />
+            )}
+            {quizCourse && (
+                <QuestionnaireBuilder
+                    courseId={quizCourse.id}
+                    courseTitle={quizCourse.title}
+                    onClose={() => setQuizCourse(null)}
                 />
             )}
             <div className="flex items-center justify-between">
@@ -396,13 +406,21 @@ function CoursesTab() {
                                 ))}
                             </div>
                             <div className="hidden sm:flex items-center gap-3 text-[11px] text-zinc-400">
-                                <span className="flex items-center gap-1"><BookOpen className="size-3" />{c.modules.length} modules</span>
-                                <span className="flex items-center gap-1"><FileText className="size-3" />
-                                    {c.modules.reduce((a, m) => a + m.lessons.length, 0)} lessons
-                                </span>
+                                {c.modules.length > 0 && <span className="flex items-center gap-1"><BookOpen className="size-3" />{c.modules.length} modules</span>}
+                                {c.modules.reduce((a, m) => a + m.lessons.length, 0) > 0 && (
+                                    <span className="flex items-center gap-1"><FileText className="size-3" />
+                                        {c.modules.reduce((a, m) => a + m.lessons.length, 0)} lessons
+                                    </span>
+                                )}
                             </div>
                             <StatusBadge status={c.status} />
                             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                    onClick={() => setQuizCourse(c)}
+                                    title="Manage Quizzes"
+                                    className="size-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-[#3A63C2] hover:bg-[#eef2fb] transition-colors">
+                                    <ClipboardList className="size-3.5" />
+                                </button>
                                 <button
                                     onClick={() => setEditingCourse(c)}
                                     className="size-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">

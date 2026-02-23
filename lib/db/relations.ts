@@ -8,6 +8,9 @@ import {
     userCourseAssignments,
     userLessonProgress,
     knowledgeDocs,
+    questionnaires,
+    questions,
+    questionnaireResponses,
 } from "./schema";
 
 export const practicesRelations = relations(practices, ({ many }) => ({
@@ -21,12 +24,14 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     assignedCourses: many(userCourseAssignments),
     lessonProgress: many(userLessonProgress),
     uploadedDocs: many(knowledgeDocs),
+    questionnaireResponses: many(questionnaireResponses),
 }));
 
 export const coursesRelations = relations(courses, ({ one, many }) => ({
     practice: one(practices, { fields: [courses.practiceId], references: [practices.id] }),
     modules: many(modules),
     assignments: many(userCourseAssignments),
+    questionnaires: many(questionnaires),
 }));
 
 export const modulesRelations = relations(modules, ({ one, many }) => ({
@@ -57,4 +62,19 @@ export const userLessonProgressRelations = relations(userLessonProgress, ({ one 
 export const knowledgeDocsRelations = relations(knowledgeDocs, ({ one }) => ({
     practice: one(practices, { fields: [knowledgeDocs.practiceId], references: [practices.id] }),
     uploadedBy: one(users, { fields: [knowledgeDocs.uploadedByUserId], references: [users.id] }),
+}));
+
+export const questionnairesRelations = relations(questionnaires, ({ one, many }) => ({
+    course: one(courses, { fields: [questionnaires.courseId], references: [courses.id] }),
+    questions: many(questions),
+    responses: many(questionnaireResponses),
+}));
+
+export const questionsRelations = relations(questions, ({ one }) => ({
+    questionnaire: one(questionnaires, { fields: [questions.questionnaireId], references: [questionnaires.id] }),
+}));
+
+export const questionnaireResponsesRelations = relations(questionnaireResponses, ({ one }) => ({
+    questionnaire: one(questionnaires, { fields: [questionnaireResponses.questionnaireId], references: [questionnaires.id] }),
+    user: one(users, { fields: [questionnaireResponses.userId], references: [users.id] }),
 }));

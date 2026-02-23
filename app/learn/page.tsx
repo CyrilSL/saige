@@ -26,6 +26,7 @@ import {
     Trophy,
     Target,
     PlayCircle,
+    ClipboardList,
 } from "lucide-react";
 import {
     CATEGORIES,
@@ -36,6 +37,7 @@ import {
 import { cn } from "@/lib/utils";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useRBAC } from "@/lib/rbac";
+import { QuizModal } from "@/components/quiz-modal";
 
 const BRAND = "#3A63C2";
 const BRAND_LIGHT = "#eef2fb";
@@ -147,9 +149,9 @@ function CourseCard({
 
                 {/* meta row */}
                 <div className="flex items-center gap-3 text-[11px] text-zinc-400">
-                    <span className="flex items-center gap-1"><Clock className="size-3" /> {course.duration}</span>
-                    <span className="flex items-center gap-1"><BookOpen className="size-3" /> {course.lessons} lessons</span>
-                    <span className="flex items-center gap-1 ml-auto"><Star className="size-3 fill-amber-400 text-amber-400" /> {course.rating}</span>
+                    {course.lessons > 0 && <span className="flex items-center gap-1"><Clock className="size-3" /> {course.duration}</span>}
+                    {course.lessons > 0 && <span className="flex items-center gap-1"><BookOpen className="size-3" /> {course.lessons} lessons</span>}
+                    {course.rating > 0 && <span className="flex items-center gap-1 ml-auto"><Star className="size-3 fill-amber-400 text-amber-400" /> {course.rating}</span>}
                 </div>
 
                 {/* progress bar */}
@@ -264,13 +266,22 @@ function LessonRow({ lesson }: { lesson: Lesson }) {
     );
 }
 
-function CourseViewer({ course, onBack }: { course: Course; onBack: () => void }) {
+function CourseViewer({ course, onBack, userId }: { course: Course; onBack: () => void; userId: number }) {
     const done = course.modules.flatMap(m => m.lessons).filter(l => l.completed).length;
     const total = course.modules.flatMap(m => m.lessons).length;
     const lvl = levelBadgeStyle(course.level);
+    const [showQuiz, setShowQuiz] = useState(false);
 
     return (
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+            {showQuiz && (
+                <QuizModal
+                    courseId={parseInt(course.id)}
+                    courseTitle={course.title}
+                    userId={userId}
+                    onClose={() => setShowQuiz(false)}
+                />
+            )}
             {/* back */}
             <button
                 className="flex items-center gap-1.5 text-[13px] text-zinc-400 hover:text-zinc-700 transition-colors"
@@ -308,10 +319,10 @@ function CourseViewer({ course, onBack }: { course: Course; onBack: () => void }
                     </div>
 
                     <div className="flex flex-wrap gap-4 text-[12px] text-zinc-500">
-                        <span className="flex items-center gap-1.5"><Clock className="size-3.5" /> {course.duration}</span>
-                        <span className="flex items-center gap-1.5"><BookOpen className="size-3.5" /> {course.lessons} lessons</span>
-                        <span className="flex items-center gap-1.5"><Users className="size-3.5" /> {course.enrolled.toLocaleString()} enrolled</span>
-                        <span className="flex items-center gap-1.5"><Star className="size-3.5 fill-amber-400 text-amber-400" /> {course.rating} rating</span>
+                        {course.lessons > 0 && <span className="flex items-center gap-1.5"><Clock className="size-3.5" /> {course.duration}</span>}
+                        {course.lessons > 0 && <span className="flex items-center gap-1.5"><BookOpen className="size-3.5" /> {course.lessons} lessons</span>}
+                        {course.enrolled > 0 && <span className="flex items-center gap-1.5"><Users className="size-3.5" /> {course.enrolled.toLocaleString()} enrolled</span>}
+                        {course.rating > 0 && <span className="flex items-center gap-1.5"><Star className="size-3.5 fill-amber-400 text-amber-400" /> {course.rating} rating</span>}
                     </div>
 
                     {/* Instructor */}
@@ -328,13 +339,20 @@ function CourseViewer({ course, onBack }: { course: Course; onBack: () => void }
                         </div>
                     </div>
 
-                    {/* tags */}
-                    <div className="flex flex-wrap gap-2">
+                    {/* tags + Take Quiz CTA */}
+                    <div className="flex flex-wrap items-center gap-2">
                         {course.tags.map(tag => (
                             <span key={tag} className="text-[11px] rounded-full px-3 py-0.5 bg-white/80 border border-zinc-200 text-zinc-600 font-medium">
                                 {tag}
                             </span>
                         ))}
+                        <button
+                            onClick={() => setShowQuiz(true)}
+                            className="ml-auto flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
+                            style={{ background: BRAND }}
+                        >
+                            <ClipboardList className="size-3.5" /> Take Quiz
+                        </button>
                     </div>
                 </div>
             </div>
@@ -343,9 +361,9 @@ function CourseViewer({ course, onBack }: { course: Course; onBack: () => void }
             {total > 0 && (
                 <div className="grid grid-cols-3 gap-3">
                     {[
-                        { label: "Completed", value: `${done}/${total}`, icon: <CheckCircle2 className="size-5 text-emerald-500" /> },
+                        { label: "Completed", value: total > 0 ? `${done}/${total}` : "—", icon: <CheckCircle2 className="size-5 text-emerald-500" /> },
                         { label: "Progress", value: `${course.progress}%`, icon: <TrendingUp className="size-5" style={{ color: BRAND }} /> },
-                        { label: "Modules", value: course.modules.length.toString(), icon: <BookOpen className="size-5 text-amber-500" /> },
+                        { label: "Modules", value: course.modules.length > 0 ? course.modules.length.toString() : "—", icon: <BookOpen className="size-5 text-amber-500" /> },
                     ].map(item => (
                         <div key={item.label} className="rounded-xl border border-zinc-100 bg-white p-4 flex items-center gap-3">
                             {item.icon}
@@ -509,7 +527,7 @@ export default function LearnPage() {
                 </header>
 
                 {activeCourse ? (
-                    <CourseViewer course={activeCourse} onBack={() => setActiveCourse(null)} />
+                    <CourseViewer course={activeCourse} onBack={() => setActiveCourse(null)} userId={currentUser?.id ?? 0} />
                 ) : (
                     <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
                         {/* Hero banner */}

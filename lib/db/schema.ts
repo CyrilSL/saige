@@ -160,6 +160,52 @@ export const userLessonProgress = pgTable("user_lesson_progress", {
     uniqueIndex("user_lesson_uniq").on(t.userId, t.lessonId),
 ]);
 
+// ─── Questionnaires ───────────────────────────────────────────────────────────
+
+export const questionnaires = pgTable("questionnaires", {
+    id: serial("id").primaryKey(),
+    courseId: integer("course_id").references(() => courses.id, { onDelete: "cascade" }).notNull(),
+    title: text("title").notNull(),
+    description: text("description").default(""),
+    passingScore: integer("passing_score").default(70), // percentage
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+    index("questionnaires_course_idx").on(t.courseId),
+]);
+
+// ─── Questions ────────────────────────────────────────────────────────────────
+
+export const questions = pgTable("questions", {
+    id: serial("id").primaryKey(),
+    questionnaireId: integer("questionnaire_id").references(() => questionnaires.id, { onDelete: "cascade" }).notNull(),
+    text: text("text").notNull(),
+    optionA: text("option_a").notNull(),
+    optionB: text("option_b").notNull(),
+    optionC: text("option_c").notNull(),
+    optionD: text("option_d").notNull(),
+    correctOption: text("correct_option").notNull(), // "A", "B", "C", or "D"
+    explanation: text("explanation").default(""),
+    position: integer("position").notNull().default(0),
+}, (t) => [
+    index("questions_questionnaire_idx").on(t.questionnaireId),
+]);
+
+// ─── Questionnaire Responses ──────────────────────────────────────────────────
+
+export const questionnaireResponses = pgTable("questionnaire_responses", {
+    id: serial("id").primaryKey(),
+    questionnaireId: integer("questionnaire_id").references(() => questionnaires.id, { onDelete: "cascade" }).notNull(),
+    userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+    answers: text("answers").notNull(), // JSON: { [questionId]: "A"|"B"|"C"|"D" }
+    score: integer("score").notNull(), // percentage 0-100
+    passed: boolean("passed").default(false),
+    submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+}, (t) => [
+    index("responses_questionnaire_idx").on(t.questionnaireId),
+    index("responses_user_idx").on(t.userId),
+]);
+
 // ─── Knowledge Documents ──────────────────────────────────────────────────────
 
 export const knowledgeDocs = pgTable("knowledge_docs", {
