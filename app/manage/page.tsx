@@ -830,7 +830,7 @@ function TeamTab() {
                                 <Search className="size-3.5 text-zinc-400 shrink-0 ml-0.5" />
                                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search staff..." className="flex-1 text-[12px] bg-transparent placeholder:text-zinc-400 focus:outline-none h-6" />
                             </div>
-                            <button onClick={() => setShowInvite(true)} className="w-full py-1.5 text-[12px] font-semibold text-white rounded-lg transition-opacity hover:opacity-90 flex items-center justify-center gap-1.5" style={{ background: BRAND }}>
+                            <button onClick={() => setShowInvite(true)} className="w-full py-1.5 text-[12px] font-semibold text-zinc-600 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors flex items-center justify-center gap-1.5">
                                 <UserPlus className="size-3.5" /> Invite Staff
                             </button>
                         </div>
@@ -927,7 +927,7 @@ function TeamTab() {
                                                     className="flex-1 h-9 px-3 text-[12px] rounded-lg border border-zinc-200 bg-zinc-50 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
                                                     style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
                                                 <button onClick={addCustomRole}
-                                                    className="h-9 px-4 text-[12px] font-semibold bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors overflow-hidden whitespace-nowrap shrink-0">
+                                                    className="h-9 px-4 text-[12px] font-semibold bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50 rounded-lg transition-colors overflow-hidden whitespace-nowrap shrink-0">
                                                     Add Role
                                                 </button>
                                             </div>

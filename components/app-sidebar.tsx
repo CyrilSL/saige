@@ -4,6 +4,7 @@ import { Sparkles, BookOpen, LayoutDashboard } from "lucide-react";
 import { useRBAC } from "@/lib/rbac";
 import { UserSwitcher } from "@/components/user-switcher";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 const BRAND = "#3A63C2";
@@ -44,13 +45,13 @@ export function AppSidebar({ badge, children }: AppSidebarProps) {
             { href: "/learn", label: "Learn", icon: <BookOpen className="size-3.5" /> },
         ];
 
-    const roleBadge = currentUser ? (ROLE_BADGE[currentUser.role] ?? ROLE_BADGE.front_desk) : null;
+    const roleBadge = isManager ? { label: "Manager", bg: "#F3E8FF", color: "#7C3AED" } : null;
 
     return (
         <aside className="flex h-full w-60 flex-col border-r border-zinc-100 bg-white shrink-0">
             {/* Brand */}
-            <div className="flex items-center gap-2 px-4 py-4 border-b border-zinc-100">
-                <span className="text-[15px] font-bold tracking-tight text-zinc-900">Saige</span>
+            <div className="flex items-center gap-2 px-4 py-4 border-b border-zinc-100 h-14">
+                <Image src="/logo.svg" alt="Saige Logo" width={80} height={24} className="object-contain h-6 w-auto" />
                 {roleBadge && (
                     <span
                         className="ml-auto text-[10px] font-semibold rounded-full px-2 py-0.5"

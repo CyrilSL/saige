@@ -149,8 +149,16 @@ function CourseCard({
 
             <div className="flex flex-col flex-1 p-4 gap-3">
                 {/* category */}
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-zinc-400 font-medium">{course.category.replace("-", " ").toUpperCase()}</span>
+                <div className="flex items-center gap-2 mb-1">
+                    {(() => {
+                        const cat = CATEGORIES.find(c => c.id === course.category);
+                        if (!cat) return null;
+                        return (
+                            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-zinc-200 text-zinc-500 bg-zinc-50 font-medium text-[10px]">
+                                <span>{cat.icon}</span> {cat.label}
+                            </span>
+                        );
+                    })()}
                 </div>
 
                 <div>
@@ -419,7 +427,6 @@ export default function LearnPage() {
     const { currentUser } = useRBAC();
     const [dbCourses, setDbCourses] = useState<Course[]>([]);
     const [loadingCourses, setLoadingCourses] = useState(true);
-    const [activeCategory, setActiveCategory] = useState("all");
     const [searchQuery, setSearchQuery] = useState("");
     const [activeCourse, setActiveCourse] = useState<Course | null>(null);
     const activeCourseId = activeCourse?.id ?? null;
@@ -474,44 +481,19 @@ export default function LearnPage() {
 
     const filtered = useMemo(() => {
         return dbCourses.filter(c => {
-            const matchCat = activeCategory === "all" || c.category === activeCategory;
             const matchSearch = searchQuery === "" ||
                 c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 c.subtitle.toLowerCase().includes(searchQuery.toLowerCase());
-            return matchCat && matchSearch;
+            return matchSearch;
         });
-    }, [dbCourses, activeCategory, searchQuery]);
+    }, [dbCourses, searchQuery]);
 
     const inProgress = dbCourses.filter(c => c.progress > 0 && c.progress < 100);
     const completed = dbCourses.filter(c => c.progress === 100);
 
     return (
         <div className="flex h-screen w-full overflow-hidden bg-[#F8F9FC]">
-            <AppSidebar>
-                <nav className="flex-1 px-3 py-3 space-y-0.5">
-                    <div className="pb-1 px-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-300">Categories</p>
-                    </div>
-                    {CATEGORIES.filter(c => c.id !== "all").map(cat => (
-                        <button
-                            key={cat.id}
-                            onClick={() => { setActiveCategory(cat.id); setActiveCourse(null); }}
-                            className={cn(
-                                "w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors text-left",
-                                activeCategory === cat.id
-                                    ? "font-semibold text-[#3A63C2] bg-[#eef2fb]"
-                                    : "text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50"
-                            )}
-                        >
-                            <span className="text-base leading-none">{cat.icon}</span>
-                            <span className="flex-1 truncate">{cat.label}</span>
-                            <span className="text-[10px] text-zinc-400">
-                                {dbCourses.filter(c => c.category === cat.id).length}
-                            </span>
-                        </button>
-                    ))}
-                </nav>
-            </AppSidebar>
+            <AppSidebar />
 
             <main className="flex flex-1 flex-col overflow-hidden">
                 <header className="flex shrink-0 items-center gap-4 border-b border-zinc-100 bg-white px-6 h-14">
@@ -558,12 +540,7 @@ export default function LearnPage() {
                                             <Play className="size-3.5" /> Start Learning
                                         </button>
                                     )}
-                                    <button
-                                        className="border border-white/40 text-white text-[13px] font-medium rounded-xl px-4 py-2 hover:bg-white/10 transition-colors"
-                                        onClick={() => setActiveCategory("all")}
-                                    >
-                                        Browse All
-                                    </button>
+
                                 </div>
                             </div>
                             <div className="relative z-10 hidden lg:flex flex-col items-center gap-1">
@@ -605,24 +582,9 @@ export default function LearnPage() {
                         <section>
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="text-[15px] font-bold text-zinc-900">
-                                    {activeCategory === "all" ? "All Courses" : CATEGORIES.find(c => c.id === activeCategory)?.label}
+                                    All Courses
                                     <span className="ml-2 text-[12px] font-normal text-zinc-400">({filtered.length})</span>
                                 </h2>
-                            </div>
-
-                            <div className="flex gap-2 overflow-x-auto pb-1 mb-5 no-scrollbar">
-                                {CATEGORIES.map(cat => (
-                                    <button key={cat.id}
-                                        onClick={() => { setActiveCategory(cat.id); setActiveCourse(null); }}
-                                        className={cn(
-                                            "flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[12px] font-medium whitespace-nowrap transition-all shrink-0 border",
-                                            activeCategory === cat.id ? "text-white border-transparent" : "text-zinc-500 border-zinc-200 bg-white hover:border-zinc-300"
-                                        )}
-                                        style={activeCategory === cat.id ? { background: BRAND } : undefined}
-                                    >
-                                        <span>{cat.icon}</span>{cat.label}
-                                    </button>
-                                ))}
                             </div>
 
                             {loadingCourses ? (
@@ -634,7 +596,7 @@ export default function LearnPage() {
                                     <BookOpen className="size-10 text-zinc-200" />
                                     <p className="text-zinc-500 font-medium">No courses assigned to your role yet</p>
                                     <p className="text-[12px] text-zinc-400">Ask your manager to assign courses to your role.</p>
-                                    <button onClick={() => { setSearchQuery(""); setActiveCategory("all"); }}
+                                    <button onClick={() => { setSearchQuery(""); }}
                                         className="text-[13px] font-medium hover:underline" style={{ color: BRAND }}>
                                         Clear filters
                                     </button>
