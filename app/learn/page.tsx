@@ -183,30 +183,19 @@ function CourseCard({
                 </div>
 
                 {/* progress bar */}
-                {pct > 0 && (
-                    <div>
-                        <div className="flex justify-between items-center mb-1">
-                            <span className="text-[11px] text-zinc-400">Progress</span>
-                            <span className="text-[11px] font-semibold" style={{ color: progressColor(pct) }}>{pct}%</span>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-zinc-100 overflow-hidden">
-                            <div
-                                className="h-full rounded-full transition-all duration-500"
-                                style={{ width: `${pct}%`, background: progressColor(pct) }}
-                            />
-                        </div>
+                <div>
+                    <div className="flex justify-between items-center mb-1">
+                        <span className="text-[11px] text-zinc-400">Progress</span>
+                        <span className="text-[11px] font-semibold" style={{ color: progressColor(pct) }}>{pct}%</span>
                     </div>
-                )}
+                    <div className="h-1.5 rounded-full bg-zinc-100 overflow-hidden">
+                        <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%`, background: progressColor(pct) }}
+                        />
+                    </div>
+                </div>
 
-                {pct === 0 && (
-                    <button
-                        className="mt-auto w-full rounded-xl py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 flex items-center justify-center gap-1.5"
-                        style={{ background: course.color }}
-                        onClick={e => { e.stopPropagation(); onOpen(course); }}
-                    >
-                        <Play className="size-3.5" /> Start Learning
-                    </button>
-                )}
             </div>
         </div>
     );

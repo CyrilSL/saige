@@ -71,6 +71,7 @@ function NavItem({ icon, label, active, onClick, badge }: {
 }
 
 function StatusBadge({ status }: { status: string }) {
+    if (status === "active") return null;
     const map: Record<string, { bg: string; text: string; label: string }> = {
         published: { bg: "#DCFCE7", text: "#15803D", label: "Published" },
         draft: { bg: "#FEF3C7", text: "#B45309", label: "Draft" },
@@ -764,7 +765,7 @@ function TeamTab() {
     useEffect(() => {
         if (selectedUser) {
             setEditedRoles((selectedUser.role ?? "").split(",").filter(Boolean));
-            setEditedCourses(selectedUser.assignedCourses?.map((a: any) => a.course?.id).filter(Boolean) ?? []);
+            setEditedCourses(selectedUser.assignedCourses?.map((a: any) => a.courseId || a.course?.id).filter(Boolean) ?? []);
             setCustomRoleInput("");
             setSavedFlag(false);
         }
@@ -801,9 +802,9 @@ function TeamTab() {
             if (res.ok) {
                 // update local state so changes reflect instantly
                 setUsers(prev => prev.map(u =>
-                    u.id === selectedUser.id ? { ...u, role: roleStr, assignedCourses: editedCourses.map(id => ({ course: { id } })) } as any : u
+                    u.id === selectedUser.id ? { ...u, role: roleStr, assignedCourses: editedCourses.map(courseId => ({ courseId })) } as any : u
                 ));
-                setSelectedUser(prev => prev ? { ...prev, role: roleStr, assignedCourses: editedCourses.map(id => ({ course: { id } })) } as any : null);
+                setSelectedUser(prev => prev ? { ...prev, role: roleStr, assignedCourses: editedCourses.map(courseId => ({ courseId })) } as any : null);
                 setSavedFlag(true); setTimeout(() => setSavedFlag(false), 2000);
             }
         } finally { setSaving(false); }
@@ -811,7 +812,7 @@ function TeamTab() {
 
     const hasChanges = selectedUser && (
         editedRoles.join(",") !== (selectedUser.role ?? "") ||
-        JSON.stringify(editedCourses.sort()) !== JSON.stringify((selectedUser.assignedCourses?.map((a: any) => a.course?.id).filter(Boolean) ?? []).sort())
+        JSON.stringify(editedCourses.sort()) !== JSON.stringify((selectedUser.assignedCourses?.map((a: any) => a.courseId || a.course?.id).filter(Boolean) ?? []).sort())
     );
 
     return (
@@ -945,6 +946,8 @@ function TeamTab() {
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                                 {courses.map(c => {
                                                     const assigned = editedCourses.includes(c.id);
+                                                    const prevAssignment = selectedUser.assignedCourses?.find((a: any) => (a.courseId || a.course?.id) === c.id);
+                                                    const pct = (prevAssignment as any)?.progress ?? 0;
                                                     return (
                                                         <div key={c.id} onClick={() => toggleCourse(c.id)}
                                                             className={cn("flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all",
@@ -952,7 +955,9 @@ function TeamTab() {
                                                             <div className="size-9 rounded-xl flex items-center justify-center text-lg shrink-0" style={{ background: `${c.color}15` }}>{c.thumbnail}</div>
                                                             <div className="flex-1 min-w-0">
                                                                 <p className={cn("text-[12px] font-bold truncate", assigned ? "text-[#3A63C2]" : "text-zinc-700")}>{c.title}</p>
-                                                                <p className="text-[10px] text-zinc-400">{c.modules.length} modules</p>
+                                                                <p className="text-[10px] text-zinc-400">
+                                                                    {c.modules.length} modules {assigned && pct > 0 && <span className="text-[#3A63C2] font-semibold">· {pct}% completed</span>}
+                                                                </p>
                                                             </div>
                                                             <div className={cn("size-5 rounded-full border-[1.5px] shadow-sm flex items-center justify-center shrink-0 transition-all", assigned ? "border-[#3A63C2] bg-[#3A63C2]" : "border-zinc-300 bg-white")}>
                                                                 {assigned && <Check className="size-3 text-white" strokeWidth={3} />}

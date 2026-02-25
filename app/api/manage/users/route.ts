@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { users, userCourseAssignments, courses } from "@/lib/db/schema";
+import { users, userCourseAssignments, courses, userLessonProgress } from "@/lib/db/schema";
 import { NextResponse } from "next/server";
 import { eq, and, ne, desc } from "drizzle-orm";
 import { PRACTICE_ID } from "@/lib/config";
@@ -24,10 +24,42 @@ export async function GET() {
             .from(userCourseAssignments)
             .innerJoin(courses, eq(userCourseAssignments.courseId, courses.id));
 
-        const assignmentMap: Record<number, typeof assignments> = {};
+        const allModules = await db.query.modules.findMany({
+            with: { lessons: true }
+        });
+
+        const courseLessonsMap: Record<number, number> = {};
+        const lessonToCourseMap: Record<number, number> = {};
+        for (const m of allModules) {
+            courseLessonsMap[m.courseId] = (courseLessonsMap[m.courseId] ?? 0) + m.lessons.length;
+            for (const l of m.lessons) {
+                lessonToCourseMap[l.id] = m.courseId;
+            }
+        }
+
+        const userProgress = await db.query.userLessonProgress.findMany({
+            where: eq(userLessonProgress.completed, true)
+        });
+
+        const userCourseProgressMap: Record<number, Record<number, number>> = {};
+        for (const p of userProgress) {
+            const courseId = lessonToCourseMap[p.lessonId];
+            if (!courseId) continue;
+            if (!userCourseProgressMap[p.userId]) userCourseProgressMap[p.userId] = {};
+            userCourseProgressMap[p.userId][courseId] = (userCourseProgressMap[p.userId][courseId] ?? 0) + 1;
+        }
+
+        const assignmentMap: Record<number, any[]> = {};
         for (const a of assignments) {
+            const total = courseLessonsMap[a.courseId] ?? 0;
+            const completed = userCourseProgressMap[a.userId]?.[a.courseId] ?? 0;
+            const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+
             if (!assignmentMap[a.userId]) assignmentMap[a.userId] = [];
-            assignmentMap[a.userId].push(a);
+            assignmentMap[a.userId].push({
+                ...a,
+                progress,
+            });
         }
 
         const result = staffUsers.map(u => ({
