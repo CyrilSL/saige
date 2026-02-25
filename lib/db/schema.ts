@@ -65,6 +65,20 @@ export const practices = pgTable("practices", {
     createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ─── Roles ───────────────────────────────────────────────────────────────────
+
+export const roles = pgTable("roles", {
+    id: serial("id").primaryKey(),
+    practiceId: integer("practice_id").references(() => practices.id).notNull(),
+    name: text("name").notNull(),
+    value: text("value").notNull(),
+    color: text("color").default("#3A63C2"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+    uniqueIndex("roles_value_practice_idx").on(t.value, t.practiceId),
+    index("roles_practice_idx").on(t.practiceId),
+]);
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 
 export const users = pgTable("users", {

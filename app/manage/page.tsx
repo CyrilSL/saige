@@ -38,6 +38,9 @@ interface DBDoc {
     id: number; title: string; type: string; sizeLabel: string;
     status: string; scope: string; tags: string; uploadedAt: string;
 }
+interface DBRole {
+    id: number; name: string; value: string; color: string; createdAt: string;
+}
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -587,7 +590,7 @@ function CoursesTab() {
         );
     }
 
-    const filtered = courses.filter(c => c.title.toLowerCase().includes(search.toLowerCase()));
+    const filtered = (Array.isArray(courses) ? courses : []).filter(c => (c.title || "").toLowerCase().includes(search.toLowerCase()));
 
     return (
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
@@ -736,57 +739,59 @@ function InviteModal({ onClose, onSave }: { onClose: () => void; onSave: (u: DBU
 }
 
 function TeamTab() {
+    const [subTab, setSubTab] = useState<"members" | "roles">("members");
     const [users, setUsers] = useState<DBUser[]>([]);
     const [courses, setCourses] = useState<DBCourse[]>([]);
+    const [dbRoles, setDbRoles] = useState<DBRole[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedUser, setSelectedUser] = useState<DBUser | null>(null);
     const [showInvite, setShowInvite] = useState(false);
     const [search, setSearch] = useState("");
 
+    // Roles Tab State
+    const [roleSearch, setRoleSearch] = useState("");
+    const [newRoleName, setNewRoleName] = useState("");
+
     // Editing state for selected user
     const [editedRoles, setEditedRoles] = useState<string[]>([]);
-    const [editedCourses, setEditedCourses] = useState<number[]>([]);
-    const [customRoleInput, setCustomRoleInput] = useState("");
     const [saving, setSaving] = useState(false);
     const [savedFlag, setSavedFlag] = useState(false);
 
     useEffect(() => {
         Promise.all([
             fetch("/api/manage/users").then(r => r.json()),
-            fetch("/api/manage/courses").then(r => r.json())
-        ]).then(([u, c]) => {
+            fetch("/api/manage/courses").then(r => r.json()),
+            fetch("/api/manage/roles").then(r => r.json()).catch(() => [])
+        ]).then(([u, c, r]) => {
             setUsers(u);
             setCourses(c);
+            setDbRoles(Array.isArray(r) ? r : []);
             setLoading(false);
         });
     }, []);
+
+    const allRoles = [
+        ...PREDEFINED_ROLES,
+        ...dbRoles.map(r => ({ label: r.name, value: r.value }))
+    ];
 
     // Load initial states when user selected
     useEffect(() => {
         if (selectedUser) {
             setEditedRoles((selectedUser.role ?? "").split(",").filter(Boolean));
-            setEditedCourses(selectedUser.assignedCourses?.map((a: any) => a.courseId || a.course?.id).filter(Boolean) ?? []);
-            setCustomRoleInput("");
             setSavedFlag(false);
         }
     }, [selectedUser]);
 
-    const filteredUsers = users.filter(u =>
-        u.name.toLowerCase().includes(search.toLowerCase()) ||
-        u.email.toLowerCase().includes(search.toLowerCase())
+    const filteredUsers = (Array.isArray(users) ? users : []).filter(u =>
+        (u.name || "").toLowerCase().includes(search.toLowerCase()) ||
+        (u.email || "").toLowerCase().includes(search.toLowerCase())
     );
 
-    function addCustomRole() {
-        const v = customRoleInput.trim().toLowerCase().replace(/\s+/g, "_");
-        if (!v || editedRoles.includes(v)) { setCustomRoleInput(""); return; }
-        setEditedRoles(prev => [...prev, v]); setCustomRoleInput(""); setSavedFlag(false);
-    }
+    const filteredRoles = allRoles.filter(r => r.label.toLowerCase().includes(roleSearch.toLowerCase()));
+
     function toggleRole(r: string) {
         setEditedRoles(prev => prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]);
-        setSavedFlag(false);
-    }
-    function toggleCourse(cid: number) {
-        setEditedCourses(prev => prev.includes(cid) ? prev.filter(x => x !== cid) : [...prev, cid]);
         setSavedFlag(false);
     }
 
@@ -797,34 +802,111 @@ function TeamTab() {
             const roleStr = editedRoles.join(",") || "front_desk";
             const res = await fetch(`/api/manage/users/${selectedUser.id}`, {
                 method: "PATCH", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ role: roleStr, assignedCourses: editedCourses })
+                body: JSON.stringify({ role: roleStr })
             });
             if (res.ok) {
-                // update local state so changes reflect instantly
                 setUsers(prev => prev.map(u =>
-                    u.id === selectedUser.id ? { ...u, role: roleStr, assignedCourses: editedCourses.map(courseId => ({ courseId })) } as any : u
+                    u.id === selectedUser.id ? { ...u, role: roleStr } as any : u
                 ));
-                setSelectedUser(prev => prev ? { ...prev, role: roleStr, assignedCourses: editedCourses.map(courseId => ({ courseId })) } as any : null);
+                setSelectedUser(prev => prev ? { ...prev, role: roleStr } as any : null);
                 setSavedFlag(true); setTimeout(() => setSavedFlag(false), 2000);
             }
         } finally { setSaving(false); }
     }
 
+    async function createNewRole() {
+        if (!newRoleName.trim()) return;
+        setSaving(true);
+        try {
+            const res = await fetch("/api/manage/roles", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: newRoleName })
+            });
+            if (res.ok) {
+                const role = await res.json();
+                setDbRoles(prev => [role, ...prev]);
+                setNewRoleName("");
+            } else {
+                alert("Failed to create role. Maybe it already exists.");
+            }
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    async function deleteRole(roleId: number, roleVal: string) {
+        if (!confirm("Remove this role?")) return;
+        await fetch(`/api/manage/roles/${roleId}`, { method: "DELETE" });
+        setDbRoles(prev => prev.filter(r => r.id !== roleId));
+    }
+
     const hasChanges = selectedUser && (
-        editedRoles.join(",") !== (selectedUser.role ?? "") ||
-        JSON.stringify(editedCourses.sort()) !== JSON.stringify((selectedUser.assignedCourses?.map((a: any) => a.courseId || a.course?.id).filter(Boolean) ?? []).sort())
+        editedRoles.join(",") !== (selectedUser.role ?? "")
     );
+
+    // Derived courses based on selected roles
+    const relevantCourses = courses.filter(c => {
+        const courseRoles = (c.assignedRoles || "").split(",").filter(Boolean);
+        return editedRoles.some(er => courseRoles.includes(er));
+    });
 
     return (
         <div className="flex-1 overflow-hidden flex flex-col px-6 py-6 gap-5">
             {showInvite && <InviteModal onClose={() => setShowInvite(false)} onSave={u => setUsers(prev => [u, ...prev])} />}
-            <div>
-                <h1 className="text-[20px] font-bold tracking-tight text-zinc-900">Team / Roles</h1>
-                <p className="text-[12px] text-zinc-400 mt-0.5">Manage staff access, roles, and course assignments</p>
+            <div className="flex items-end justify-between">
+                <div>
+                    <h1 className="text-[20px] font-bold tracking-tight text-zinc-900">Team / Roles</h1>
+                    <p className="text-[12px] text-zinc-400 mt-0.5">Manage staff access, roles, and course assignments</p>
+                </div>
+                <div className="flex bg-zinc-100/50 p-1 rounded-xl">
+                    <button onClick={() => setSubTab("members")} className={cn("px-4 py-1.5 text-[13px] font-semibold rounded-lg transition-all", subTab === "members" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700")} >Team Members</button>
+                    <button onClick={() => setSubTab("roles")} className={cn("px-4 py-1.5 text-[13px] font-semibold rounded-lg transition-all", subTab === "roles" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700")}>Practice Roles</button>
+                </div>
             </div>
-            {loading ? <Spinner /> : (
+
+            {loading ? <Spinner /> : subTab === "roles" ? (
                 <div className="flex gap-4 flex-1 min-h-0">
-                    {/* Left: Staff list */}
+                    <div className="w-[300px] shrink-0 bg-white rounded-2xl border border-zinc-100 overflow-hidden flex flex-col">
+                        <div className="px-3 py-3 border-b border-zinc-100 flex flex-col gap-2 shrink-0">
+                            <div className="flex items-center gap-2 bg-zinc-50 rounded-lg px-2 py-1.5 border border-zinc-200 focus-within:ring-2 focus-within:border-transparent transition-all" style={{ "--tw-ring-color": BRAND } as React.CSSProperties}>
+                                <Search className="size-3.5 text-zinc-400 shrink-0 ml-0.5" />
+                                <input value={roleSearch} onChange={e => setRoleSearch(e.target.value)} placeholder="Search roles..." className="flex-1 text-[12px] bg-transparent placeholder:text-zinc-400 focus:outline-none h-6" />
+                            </div>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-3 space-y-1">
+                            {filteredRoles.map(r => (
+                                <div key={r.value} className="flex items-center justify-between px-3 py-2.5 bg-zinc-50 rounded-xl">
+                                    <span className="text-[13px] font-semibold text-zinc-800">{r.label}</span>
+                                    {dbRoles.find(db => db.value === r.value) && (
+                                        <button onClick={() => deleteRole(dbRoles.find(db => db.value === r.value)!.id, r.value)} className="text-zinc-400 hover:text-red-500 p-1">
+                                            <Trash2 className="size-3.5" />
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex-1 bg-white rounded-2xl border border-zinc-100 overflow-hidden p-6">
+                        <h3 className="text-[16px] font-bold text-zinc-900 mb-4 flex items-center gap-2"><Shield className="size-5" /> Create New Role</h3>
+                        <p className="text-[13px] text-zinc-500 mb-6">Centralize role creation here. Assigned roles help organize staff and govern course assignments.</p>
+
+                        <div className="max-w-sm space-y-4">
+                            <div>
+                                <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-1.5 block">Role Name</label>
+                                <input value={newRoleName} onChange={e => setNewRoleName(e.target.value)} onKeyDown={e => e.key === "Enter" && createNewRole()} placeholder="e.g. Lead Assistant"
+                                    className="w-full h-9 px-3 text-[13px] rounded-xl border border-zinc-200 bg-zinc-50 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                                    style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
+                            </div>
+                            <button onClick={createNewRole} disabled={saving || !newRoleName.trim()}
+                                className="w-full flex justify-center items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                                style={{ background: BRAND }}>
+                                {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} Create Role
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className="flex gap-4 flex-1 min-h-0">
                     <div className="w-[300px] shrink-0 bg-white rounded-2xl border border-zinc-100 overflow-hidden flex flex-col">
                         <div className="px-3 py-3 border-b border-zinc-100 flex flex-col gap-2 shrink-0">
                             <div className="flex items-center gap-2 bg-zinc-50 rounded-lg px-2 py-1.5 border border-zinc-200 focus-within:ring-2 focus-within:border-transparent transition-all" style={{ "--tw-ring-color": BRAND } as React.CSSProperties}>
@@ -859,7 +941,6 @@ function TeamTab() {
                         </div>
                     </div>
 
-                    {/* Right: User Profile & Assignments */}
                     <div className="flex-1 bg-white rounded-2xl border border-zinc-100 overflow-hidden flex flex-col min-w-0">
                         {!selectedUser ? (
                             <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center">
@@ -900,74 +981,30 @@ function TeamTab() {
                                     </button>
                                 </div>
                                 <div className="flex-1 overflow-y-auto px-6 py-5 space-y-8">
-                                    {/* Roles Section */}
                                     <section>
                                         <h3 className="text-[13px] font-bold text-zinc-900 mb-3 flex items-center gap-1.5">
                                             <Shield className="size-4 text-zinc-400" /> Roles & Access
                                         </h3>
                                         <div className="bg-white border border-zinc-100 rounded-xl p-4 shadow-sm">
                                             <div className="flex flex-wrap gap-2 mb-4">
-                                                {PREDEFINED_ROLES.map(r => (
+                                                {allRoles.map(r => (
                                                     <button key={r.value} onClick={() => toggleRole(r.value)}
                                                         className={cn("text-[11px] font-semibold rounded-full px-3 py-1.5 transition-all border",
                                                             editedRoles.includes(r.value) ? "bg-[#3A63C2] text-white border-[#3A63C2] shadow-sm shadow-blue-100" : "bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-zinc-300 hover:bg-zinc-100")}>
                                                         {r.label}
                                                     </button>
                                                 ))}
-                                                {editedRoles.filter(er => !PREDEFINED_ROLES.find(pr => pr.value === er)).map(customRole => (
+                                                {editedRoles.filter(er => !allRoles.find(ar => ar.value === er)).map(customRole => (
                                                     <button key={customRole} onClick={() => toggleRole(customRole)}
                                                         className="text-[11px] font-semibold rounded-full px-3 py-1.5 transition-all border bg-[#3A63C2] text-white border-[#3A63C2] shadow-sm shadow-blue-100 flex items-center gap-1">
                                                         {customRole.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())} <X className="size-3 text-white/70" />
                                                     </button>
                                                 ))}
                                             </div>
-                                            <div className="flex gap-2 max-w-sm relative">
-                                                <input value={customRoleInput} onChange={e => setCustomRoleInput(e.target.value)}
-                                                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCustomRole(); } }}
-                                                    placeholder="Add custom role..."
-                                                    className="flex-1 h-9 px-3 text-[12px] rounded-lg border border-zinc-200 bg-zinc-50 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-                                                    style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
-                                                <button onClick={addCustomRole}
-                                                    className="h-9 px-4 text-[12px] font-semibold bg-white border border-zinc-200 text-zinc-700 hover:bg-zinc-50 rounded-lg transition-colors overflow-hidden whitespace-nowrap shrink-0">
-                                                    Add Role
-                                                </button>
-                                            </div>
                                         </div>
                                     </section>
 
-                                    {/* Assigned Courses Section */}
-                                    <section>
-                                        <h3 className="text-[13px] font-bold text-zinc-900 mb-3 flex items-center gap-1.5">
-                                            <GraduationCap className="size-4 text-zinc-400" /> Assigned Learning Paths
-                                        </h3>
-                                        {courses.length === 0 ? (
-                                            <p className="text-[12px] text-zinc-400 bg-zinc-50 border border-zinc-100 rounded-xl p-4 text-center">No courses available.</p>
-                                        ) : (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                {courses.map(c => {
-                                                    const assigned = editedCourses.includes(c.id);
-                                                    const prevAssignment = selectedUser.assignedCourses?.find((a: any) => (a.courseId || a.course?.id) === c.id);
-                                                    const pct = (prevAssignment as any)?.progress ?? 0;
-                                                    return (
-                                                        <div key={c.id} onClick={() => toggleCourse(c.id)}
-                                                            className={cn("flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all",
-                                                                assigned ? "border-[#3A63C2] bg-[#eef2fb]" : "border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50")}>
-                                                            <div className="size-9 rounded-xl flex items-center justify-center text-lg shrink-0" style={{ background: `${c.color}15` }}>{c.thumbnail}</div>
-                                                            <div className="flex-1 min-w-0">
-                                                                <p className={cn("text-[12px] font-bold truncate", assigned ? "text-[#3A63C2]" : "text-zinc-700")}>{c.title}</p>
-                                                                <p className="text-[10px] text-zinc-400">
-                                                                    {c.modules.length} modules {assigned && pct > 0 && <span className="text-[#3A63C2] font-semibold">· {pct}% completed</span>}
-                                                                </p>
-                                                            </div>
-                                                            <div className={cn("size-5 rounded-full border-[1.5px] shadow-sm flex items-center justify-center shrink-0 transition-all", assigned ? "border-[#3A63C2] bg-[#3A63C2]" : "border-zinc-300 bg-white")}>
-                                                                {assigned && <Check className="size-3 text-white" strokeWidth={3} />}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </section>
+
                                 </div>
                             </div>
                         )}

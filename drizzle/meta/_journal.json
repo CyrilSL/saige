@@ -8,6 +8,13 @@
       "when": 1771880607863,
       "tag": "0000_light_arachne",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772060020965,
+      "tag": "0001_bright_annihilus",
+      "breakpoints": true
     }
   ]
 }
