@@ -751,11 +751,16 @@ function TeamTab() {
     // Roles Tab State
     const [roleSearch, setRoleSearch] = useState("");
     const [newRoleName, setNewRoleName] = useState("");
+    const [newRoleColor, setNewRoleColor] = useState("#3A63C2");
+    const [selectedRole, setSelectedRole] = useState<string | null>(null);
 
     // Editing state for selected user
     const [editedRoles, setEditedRoles] = useState<string[]>([]);
+    const [editedCourses, setEditedCourses] = useState<number[]>([]);
     const [saving, setSaving] = useState(false);
     const [savedFlag, setSavedFlag] = useState(false);
+
+    const ROLE_COLORS = ["#3A63C2", "#059669", "#DC2626", "#0891B2", "#EA580C", "#7C3AED", "#DB2777", "#CA8A04"];
 
     useEffect(() => {
         Promise.all([
@@ -772,13 +777,36 @@ function TeamTab() {
 
     const allRoles = [
         ...PREDEFINED_ROLES,
-        ...dbRoles.map(r => ({ label: r.name, value: r.value }))
+        ...dbRoles.map(r => ({ label: r.name, value: r.value, color: r.color }))
     ];
+
+    function getRoleColor(value: string) {
+        const dbRole = dbRoles.find(r => r.value === value);
+        if (dbRole?.color) return dbRole.color;
+        const idx = PREDEFINED_ROLES.findIndex(r => r.value === value);
+        return idx >= 0 ? ROLE_COLORS[idx % ROLE_COLORS.length] : BRAND;
+    }
+
+    function membersForRole(roleValue: string) {
+        return (Array.isArray(users) ? users : []).filter(u =>
+            (u.role ?? "").split(",").map(r => r.trim()).includes(roleValue)
+        );
+    }
+
+    function coursesForRole(roleValue: string) {
+        return courses.filter(c => {
+            const roles = (c.assignedRoles || "").split(",").map(r => r.trim()).filter(Boolean);
+            return roles.includes(roleValue);
+        });
+    }
 
     // Load initial states when user selected
     useEffect(() => {
         if (selectedUser) {
             setEditedRoles((selectedUser.role ?? "").split(",").filter(Boolean));
+            setEditedCourses(
+                (selectedUser.assignedCourses ?? []).map((ac: any) => ac.courseId ?? ac.course?.id).filter(Boolean)
+            );
             setSavedFlag(false);
         }
     }, [selectedUser]);
@@ -795,6 +823,18 @@ function TeamTab() {
         setSavedFlag(false);
     }
 
+    function toggleCourse(courseId: number) {
+        setEditedCourses(prev => prev.includes(courseId) ? prev.filter(x => x !== courseId) : [...prev, courseId]);
+        setSavedFlag(false);
+    }
+
+    const hasChanges = selectedUser && (
+        editedRoles.join(",") !== (selectedUser.role ?? "") ||
+        JSON.stringify(editedCourses.sort()) !== JSON.stringify(
+            (selectedUser.assignedCourses ?? []).map((ac: any) => ac.courseId ?? ac.course?.id).filter(Boolean).sort()
+        )
+    );
+
     async function saveProfile() {
         if (!selectedUser) return;
         setSaving(true);
@@ -802,13 +842,14 @@ function TeamTab() {
             const roleStr = editedRoles.join(",") || "front_desk";
             const res = await fetch(`/api/manage/users/${selectedUser.id}`, {
                 method: "PATCH", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ role: roleStr })
+                body: JSON.stringify({ role: roleStr, assignedCourses: editedCourses })
             });
             if (res.ok) {
-                setUsers(prev => prev.map(u =>
-                    u.id === selectedUser.id ? { ...u, role: roleStr } as any : u
-                ));
-                setSelectedUser(prev => prev ? { ...prev, role: roleStr } as any : null);
+                // Refetch users to get updated assignment data with progress
+                const refreshed = await fetch("/api/manage/users").then(r => r.json());
+                setUsers(refreshed);
+                const updated = refreshed.find((u: DBUser) => u.id === selectedUser.id);
+                if (updated) setSelectedUser(updated);
                 setSavedFlag(true); setTimeout(() => setSavedFlag(false), 2000);
             }
         } finally { setSaving(false); }
@@ -820,12 +861,13 @@ function TeamTab() {
         try {
             const res = await fetch("/api/manage/roles", {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: newRoleName })
+                body: JSON.stringify({ name: newRoleName, color: newRoleColor })
             });
             if (res.ok) {
                 const role = await res.json();
                 setDbRoles(prev => [role, ...prev]);
                 setNewRoleName("");
+                setNewRoleColor("#3A63C2");
             } else {
                 alert("Failed to create role. Maybe it already exists.");
             }
@@ -838,84 +880,243 @@ function TeamTab() {
         if (!confirm("Remove this role?")) return;
         await fetch(`/api/manage/roles/${roleId}`, { method: "DELETE" });
         setDbRoles(prev => prev.filter(r => r.id !== roleId));
+        if (selectedRole === roleVal) setSelectedRole(null);
     }
 
-    const hasChanges = selectedUser && (
-        editedRoles.join(",") !== (selectedUser.role ?? "")
-    );
-
-    // Derived courses based on selected roles
-    const relevantCourses = courses.filter(c => {
-        const courseRoles = (c.assignedRoles || "").split(",").filter(Boolean);
-        return editedRoles.some(er => courseRoles.includes(er));
-    });
+    // Published courses only for assignment
+    const publishedCourses = courses.filter(c => c.status === "published");
 
     return (
         <div className="flex-1 overflow-hidden flex flex-col px-6 py-6 gap-5">
             {showInvite && <InviteModal onClose={() => setShowInvite(false)} onSave={u => setUsers(prev => [u, ...prev])} />}
+
+            {/* Header */}
             <div className="flex items-end justify-between">
                 <div>
                     <h1 className="text-[20px] font-bold tracking-tight text-zinc-900">Team / Roles</h1>
-                    <p className="text-[12px] text-zinc-400 mt-0.5">Manage staff access, roles, and course assignments</p>
+                    <p className="text-[12px] text-zinc-400 mt-0.5">Manage staff, roles, and course assignments</p>
                 </div>
-                <div className="flex bg-zinc-100/50 p-1 rounded-xl">
-                    <button onClick={() => setSubTab("members")} className={cn("px-4 py-1.5 text-[13px] font-semibold rounded-lg transition-all", subTab === "members" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700")} >Team Members</button>
-                    <button onClick={() => setSubTab("roles")} className={cn("px-4 py-1.5 text-[13px] font-semibold rounded-lg transition-all", subTab === "roles" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700")}>Practice Roles</button>
+                <div className="flex items-center gap-3">
+                    <div className="flex bg-zinc-100/60 p-1 rounded-xl">
+                        <button onClick={() => setSubTab("members")} className={cn("px-4 py-1.5 text-[13px] font-semibold rounded-lg transition-all", subTab === "members" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700")}>Team Members</button>
+                        <button onClick={() => setSubTab("roles")} className={cn("px-4 py-1.5 text-[13px] font-semibold rounded-lg transition-all", subTab === "roles" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500 hover:text-zinc-700")}>Practice Roles</button>
+                    </div>
+                    {subTab === "members" && (
+                        <button onClick={() => setShowInvite(true)}
+                            className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold text-white rounded-xl hover:opacity-90 transition-opacity shadow-sm"
+                            style={{ background: BRAND }}>
+                            <UserPlus className="size-3.5" /> Invite
+                        </button>
+                    )}
                 </div>
             </div>
 
+            {/* Stats row */}
+            {!loading && (
+                <div className="grid grid-cols-4 gap-3">
+                    <div className="rounded-2xl bg-white border border-zinc-100 px-4 py-3.5">
+                        <p className="text-[20px] font-bold text-zinc-900">{users.length}</p>
+                        <p className="text-[11px] text-zinc-400 font-medium">Total Staff</p>
+                    </div>
+                    <div className="rounded-2xl bg-white border border-zinc-100 px-4 py-3.5">
+                        <p className="text-[20px] font-bold text-emerald-600">{users.filter(u => u.status === "active").length}</p>
+                        <p className="text-[11px] text-zinc-400 font-medium">Active</p>
+                    </div>
+                    <div className="rounded-2xl bg-white border border-zinc-100 px-4 py-3.5">
+                        <p className="text-[20px] font-bold" style={{ color: BRAND }}>{users.filter(u => u.status === "invited").length}</p>
+                        <p className="text-[11px] text-zinc-400 font-medium">Invited</p>
+                    </div>
+                    <div className="rounded-2xl bg-white border border-zinc-100 px-4 py-3.5">
+                        <p className="text-[20px] font-bold text-zinc-900">{allRoles.length}</p>
+                        <p className="text-[11px] text-zinc-400 font-medium">Roles</p>
+                    </div>
+                </div>
+            )}
+
             {loading ? <Spinner /> : subTab === "roles" ? (
+                /* ─── Roles Sub-Tab ─────────────────────────────────────────────── */
                 <div className="flex gap-4 flex-1 min-h-0">
-                    <div className="w-[300px] shrink-0 bg-white rounded-2xl border border-zinc-100 overflow-hidden flex flex-col">
-                        <div className="px-3 py-3 border-b border-zinc-100 flex flex-col gap-2 shrink-0">
+                    {/* Role list */}
+                    <div className="w-[320px] shrink-0 bg-white rounded-2xl border border-zinc-100 overflow-hidden flex flex-col">
+                        <div className="px-3 py-3 border-b border-zinc-100 shrink-0">
                             <div className="flex items-center gap-2 bg-zinc-50 rounded-lg px-2 py-1.5 border border-zinc-200 focus-within:ring-2 focus-within:border-transparent transition-all" style={{ "--tw-ring-color": BRAND } as React.CSSProperties}>
                                 <Search className="size-3.5 text-zinc-400 shrink-0 ml-0.5" />
                                 <input value={roleSearch} onChange={e => setRoleSearch(e.target.value)} placeholder="Search roles..." className="flex-1 text-[12px] bg-transparent placeholder:text-zinc-400 focus:outline-none h-6" />
                             </div>
                         </div>
-                        <div className="flex-1 overflow-y-auto p-3 space-y-1">
-                            {filteredRoles.map(r => (
-                                <div key={r.value} className="flex items-center justify-between px-3 py-2.5 bg-zinc-50 rounded-xl">
-                                    <span className="text-[13px] font-semibold text-zinc-800">{r.label}</span>
-                                    {dbRoles.find(db => db.value === r.value) && (
-                                        <button onClick={() => deleteRole(dbRoles.find(db => db.value === r.value)!.id, r.value)} className="text-zinc-400 hover:text-red-500 p-1">
-                                            <Trash2 className="size-3.5" />
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
+                        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                            {filteredRoles.map(r => {
+                                const memberCount = membersForRole(r.value).length;
+                                const courseCount = coursesForRole(r.value).length;
+                                const color = getRoleColor(r.value);
+                                const isCustom = !!dbRoles.find(db => db.value === r.value);
+                                return (
+                                    <button key={r.value}
+                                        onClick={() => setSelectedRole(selectedRole === r.value ? null : r.value)}
+                                        className={cn("w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all",
+                                            selectedRole === r.value ? "bg-[#eef2fb] border border-blue-100" : "hover:bg-zinc-50 border border-transparent")}>
+                                        <div className="size-8 rounded-lg flex items-center justify-center text-white text-[11px] font-bold shrink-0" style={{ background: color }}>
+                                            {r.label.slice(0, 2).toUpperCase()}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className={cn("text-[13px] font-semibold truncate", selectedRole === r.value ? "text-[#3A63C2]" : "text-zinc-800")}>{r.label}</p>
+                                            <p className="text-[10px] text-zinc-400">{memberCount} member{memberCount !== 1 ? "s" : ""} · {courseCount} course{courseCount !== 1 ? "s" : ""}</p>
+                                        </div>
+                                        {isCustom && (
+                                            <span className="text-[9px] font-medium text-zinc-400 bg-zinc-100 rounded-full px-1.5 py-0.5">Custom</span>
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
-                    <div className="flex-1 bg-white rounded-2xl border border-zinc-100 overflow-hidden p-6">
-                        <h3 className="text-[16px] font-bold text-zinc-900 mb-4 flex items-center gap-2"><Shield className="size-5" /> Create New Role</h3>
-                        <p className="text-[13px] text-zinc-500 mb-6">Centralize role creation here. Assigned roles help organize staff and govern course assignments.</p>
 
-                        <div className="max-w-sm space-y-4">
-                            <div>
-                                <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-1.5 block">Role Name</label>
-                                <input value={newRoleName} onChange={e => setNewRoleName(e.target.value)} onKeyDown={e => e.key === "Enter" && createNewRole()} placeholder="e.g. Lead Assistant"
-                                    className="w-full h-9 px-3 text-[13px] rounded-xl border border-zinc-200 bg-zinc-50 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-                                    style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
+                    {/* Role detail / create panel */}
+                    <div className="flex-1 bg-white rounded-2xl border border-zinc-100 overflow-hidden flex flex-col min-w-0">
+                        {selectedRole ? (() => {
+                            const role = allRoles.find(r => r.value === selectedRole);
+                            if (!role) return null;
+                            const members = membersForRole(selectedRole);
+                            const roleCourses = coursesForRole(selectedRole);
+                            const color = getRoleColor(selectedRole);
+                            const isCustom = !!dbRoles.find(db => db.value === selectedRole);
+
+                            return (
+                                <div className="flex-1 flex flex-col min-h-0">
+                                    {/* Role header */}
+                                    <div className="px-6 py-5 border-b border-zinc-100 shrink-0">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="size-10 rounded-xl flex items-center justify-center text-white text-[13px] font-bold" style={{ background: color }}>
+                                                    {role.label.slice(0, 2).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <h2 className="text-[16px] font-bold text-zinc-900">{role.label}</h2>
+                                                    <p className="text-[12px] text-zinc-400">{isCustom ? "Custom role" : "Default role"} · {members.length} member{members.length !== 1 ? "s" : ""}</p>
+                                                </div>
+                                            </div>
+                                            {isCustom && (
+                                                <button onClick={() => deleteRole(dbRoles.find(db => db.value === selectedRole)!.id, selectedRole)}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 text-[12px] font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                                    <Trash2 className="size-3.5" /> Delete Role
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+                                        {/* Members in this role */}
+                                        <section>
+                                            <h3 className="text-[13px] font-bold text-zinc-900 mb-3 flex items-center gap-1.5">
+                                                <Users className="size-4 text-zinc-400" /> Members ({members.length})
+                                            </h3>
+                                            {members.length === 0 ? (
+                                                <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 py-6 text-center">
+                                                    <p className="text-[12px] text-zinc-400">No members assigned to this role yet</p>
+                                                </div>
+                                            ) : (
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    {members.map(m => (
+                                                        <div key={m.id} className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-zinc-50/80 border border-zinc-100">
+                                                            <div className="size-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ background: color }}>
+                                                                {m.avatarInitials}
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <p className="text-[12px] font-semibold text-zinc-800 truncate">{m.name}</p>
+                                                                <p className="text-[10px] text-zinc-400 truncate">{m.email}</p>
+                                                            </div>
+                                                            <StatusBadge status={m.status} />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </section>
+
+                                        {/* Courses assigned to this role */}
+                                        <section>
+                                            <h3 className="text-[13px] font-bold text-zinc-900 mb-3 flex items-center gap-1.5">
+                                                <BookOpen className="size-4 text-zinc-400" /> Courses ({roleCourses.length})
+                                            </h3>
+                                            {roleCourses.length === 0 ? (
+                                                <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 py-6 text-center">
+                                                    <p className="text-[12px] text-zinc-400">No courses assigned to this role</p>
+                                                    <p className="text-[11px] text-zinc-300 mt-1">Assign courses in the Courses tab</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    {roleCourses.map(c => (
+                                                        <div key={c.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-zinc-50/80 border border-zinc-100">
+                                                            <div className="size-8 rounded-lg flex items-center justify-center text-lg shrink-0" style={{ background: `${c.color}15` }}>
+                                                                {c.thumbnail}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-[12px] font-semibold text-zinc-800 truncate">{c.title}</p>
+                                                                <p className="text-[10px] text-zinc-400">{c.modules?.length ?? 0} modules · {(c.modules ?? []).reduce((a, m) => a + (m.lessons?.length ?? 0), 0)} lessons</p>
+                                                            </div>
+                                                            <StatusBadge status={c.status} />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </section>
+                                    </div>
+                                </div>
+                            );
+                        })() : (
+                            /* Create new role form */
+                            <div className="flex-1 flex flex-col items-center justify-center px-6">
+                                <div className="w-full max-w-sm space-y-6">
+                                    <div className="text-center">
+                                        <div className="size-12 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: `${newRoleColor}15` }}>
+                                            <Shield className="size-6" style={{ color: newRoleColor }} />
+                                        </div>
+                                        <h3 className="text-[16px] font-bold text-zinc-900">Create New Role</h3>
+                                        <p className="text-[12px] text-zinc-400 mt-1">Roles organize staff and control course access</p>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-1.5 block">Role Name</label>
+                                            <input value={newRoleName} onChange={e => setNewRoleName(e.target.value)} onKeyDown={e => e.key === "Enter" && createNewRole()} placeholder="e.g. Lead Assistant"
+                                                className="w-full h-10 px-3 text-[13px] rounded-xl border border-zinc-200 bg-zinc-50 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                                                style={{ "--tw-ring-color": BRAND } as React.CSSProperties} />
+                                        </div>
+                                        <div>
+                                            <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wide mb-2 block">Color</label>
+                                            <div className="flex gap-2">
+                                                {ROLE_COLORS.map(c => (
+                                                    <button key={c} onClick={() => setNewRoleColor(c)}
+                                                        className={cn("size-8 rounded-full transition-all", newRoleColor === c ? "ring-2 ring-offset-2 scale-110" : "hover:scale-105")}
+                                                        style={{ background: c, "--tw-ring-color": c } as React.CSSProperties} />
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <button onClick={createNewRole} disabled={saving || !newRoleName.trim()}
+                                            className="w-full flex justify-center items-center gap-1.5 rounded-xl px-4 py-2.5 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                                            style={{ background: BRAND }}>
+                                            {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} Create Role
+                                        </button>
+                                    </div>
+
+                                    {/* Hint: select a role */}
+                                    <div className="pt-4 border-t border-zinc-100 text-center">
+                                        <p className="text-[11px] text-zinc-400">Select a role on the left to view its members and courses</p>
+                                    </div>
+                                </div>
                             </div>
-                            <button onClick={createNewRole} disabled={saving || !newRoleName.trim()}
-                                className="w-full flex justify-center items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-                                style={{ background: BRAND }}>
-                                {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} Create Role
-                            </button>
-                        </div>
+                        )}
                     </div>
                 </div>
             ) : (
+                /* ─── Members Sub-Tab ───────────────────────────────────────────── */
                 <div className="flex gap-4 flex-1 min-h-0">
+                    {/* User list */}
                     <div className="w-[300px] shrink-0 bg-white rounded-2xl border border-zinc-100 overflow-hidden flex flex-col">
-                        <div className="px-3 py-3 border-b border-zinc-100 flex flex-col gap-2 shrink-0">
+                        <div className="px-3 py-3 border-b border-zinc-100 shrink-0">
                             <div className="flex items-center gap-2 bg-zinc-50 rounded-lg px-2 py-1.5 border border-zinc-200 focus-within:ring-2 focus-within:border-transparent transition-all" style={{ "--tw-ring-color": BRAND } as React.CSSProperties}>
                                 <Search className="size-3.5 text-zinc-400 shrink-0 ml-0.5" />
                                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search staff..." className="flex-1 text-[12px] bg-transparent placeholder:text-zinc-400 focus:outline-none h-6" />
                             </div>
-                            <button onClick={() => setShowInvite(true)} className="w-full py-1.5 text-[12px] font-semibold text-zinc-600 bg-white border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors flex items-center justify-center gap-1.5">
-                                <UserPlus className="size-3.5" /> Invite Staff
-                            </button>
                         </div>
                         <div className="flex-1 overflow-y-auto overflow-x-hidden">
                             {filteredUsers.length === 0 ? (
@@ -923,88 +1124,221 @@ function TeamTab() {
                                     <p className="text-[12px] text-zinc-400">No staff found</p>
                                 </div>
                             ) : (
-                                filteredUsers.map(u => (
-                                    <button key={u.id} onClick={() => setSelectedUser(u)}
-                                        className={cn("w-full flex items-center gap-3 px-4 py-3 text-left transition-colors border-b border-zinc-50 last:border-0",
-                                            selectedUser?.id === u.id ? "bg-[#eef2fb]" : "hover:bg-zinc-50")}>
-                                        <div className="size-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ background: BRAND }}>
-                                            {u.avatarInitials}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className={cn("text-[12px] font-semibold truncate", selectedUser?.id === u.id ? "text-[#3A63C2]" : "text-zinc-800")}>{u.name}</p>
-                                            <p className="text-[10px] text-zinc-400 truncate">{u.email}</p>
-                                        </div>
-                                        <div className="shrink-0"><StatusBadge status={u.status} /></div>
-                                    </button>
-                                ))
+                                filteredUsers.map(u => {
+                                    const userRoles = (u.role ?? "").split(",").filter(Boolean);
+                                    const primaryColor = getRoleColor(userRoles[0] ?? "front_desk");
+                                    return (
+                                        <button key={u.id} onClick={() => setSelectedUser(u)}
+                                            className={cn("w-full flex items-center gap-3 px-4 py-3 text-left transition-colors border-b border-zinc-50 last:border-0",
+                                                selectedUser?.id === u.id ? "bg-[#eef2fb]" : "hover:bg-zinc-50")}>
+                                            <div className="size-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0" style={{ background: primaryColor }}>
+                                                {u.avatarInitials}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className={cn("text-[12px] font-semibold truncate", selectedUser?.id === u.id ? "text-[#3A63C2]" : "text-zinc-800")}>{u.name}</p>
+                                                <p className="text-[10px] text-zinc-400 truncate">{roleLabel(u.role)}</p>
+                                            </div>
+                                            <div className="shrink-0 flex items-center gap-1.5">
+                                                {(u.assignedCourses?.length ?? 0) > 0 && (
+                                                    <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-blue-50 text-[#3A63C2]">
+                                                        {u.assignedCourses.length}
+                                                    </span>
+                                                )}
+                                                <StatusBadge status={u.status} />
+                                            </div>
+                                        </button>
+                                    );
+                                })
                             )}
                         </div>
                     </div>
 
+                    {/* User detail panel */}
                     <div className="flex-1 bg-white rounded-2xl border border-zinc-100 overflow-hidden flex flex-col min-w-0">
                         {!selectedUser ? (
                             <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center">
-                                <Users className="size-10 text-zinc-200" />
+                                <div className="size-14 rounded-2xl bg-zinc-50 flex items-center justify-center">
+                                    <Users className="size-7 text-zinc-300" />
+                                </div>
                                 <div>
                                     <p className="text-[14px] font-bold text-zinc-800">Select a team member</p>
-                                    <p className="text-[12px] text-zinc-400 mt-1">Manage their roles and assign courses</p>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3 mt-4 text-left">
-                                    <div className="rounded-xl border border-zinc-100 px-4 py-3 bg-zinc-50/50 min-w-32">
-                                        <p className="text-[20px] font-bold text-zinc-900">{users.length}</p>
-                                        <p className="text-[11px] font-medium text-zinc-400">Total Staff</p>
-                                    </div>
-                                    <div className="rounded-xl border border-zinc-100 px-4 py-3 bg-zinc-50/50 min-w-32">
-                                        <p className="text-[20px] font-bold text-[#059669]">{users.filter(u => u.status === "active").length}</p>
-                                        <p className="text-[11px] font-medium text-zinc-400">Active</p>
-                                    </div>
+                                    <p className="text-[12px] text-zinc-400 mt-1">Manage roles and assign training courses</p>
                                 </div>
                             </div>
                         ) : (
                             <div className="flex-1 flex flex-col min-h-0">
-                                <div className="px-6 py-5 border-b border-zinc-100 bg-zinc-50/30 shrink-0 flex items-start justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <div className="size-12 rounded-full flex items-center justify-center text-[15px] font-bold text-white shadow-sm shrink-0" style={{ background: BRAND }}>
-                                            {selectedUser.avatarInitials}
+                                {/* User header */}
+                                <div className="px-6 py-5 border-b border-zinc-100 bg-zinc-50/30 shrink-0">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <div className="size-12 rounded-full flex items-center justify-center text-[15px] font-bold text-white shadow-sm shrink-0" style={{ background: getRoleColor(editedRoles[0] ?? "front_desk") }}>
+                                                {selectedUser.avatarInitials}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <h2 className="text-[16px] font-bold text-zinc-900 truncate">{selectedUser.name}</h2>
+                                                <p className="text-[12px] text-zinc-500 truncate">{selectedUser.email}</p>
+                                                <div className="flex items-center gap-2 mt-1.5">
+                                                    <StatusBadge status={selectedUser.status} />
+                                                    <span className="text-[10px] text-zinc-300">·</span>
+                                                    <span className="text-[10px] text-zinc-400">Joined {selectedUser.createdAt?.split("T")[0]}</span>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="min-w-0">
-                                            <h2 className="text-[16px] font-bold text-zinc-900 truncate">{selectedUser.name}</h2>
-                                            <p className="text-[12px] text-zinc-500 truncate">{selectedUser.email}</p>
-                                            <div className="mt-1.5"><StatusBadge status={selectedUser.status} /></div>
-                                        </div>
+                                        <button onClick={saveProfile} disabled={saving || (!hasChanges && !savedFlag)}
+                                            className={cn(
+                                                "flex items-center gap-1.5 rounded-xl px-4 py-2 text-[12px] font-semibold text-white transition-all shadow-sm shrink-0",
+                                                savedFlag ? "bg-emerald-500" : "hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                                            )}
+                                            style={!savedFlag ? { background: BRAND } : undefined}>
+                                            {saving ? <Loader2 className="size-3.5 animate-spin" /> : savedFlag ? <CheckCircle2 className="size-3.5" /> : <Save className="size-3.5" />}
+                                            {saving ? "Saving..." : savedFlag ? "Saved!" : hasChanges ? "Save Changes" : "Save"}
+                                        </button>
                                     </div>
-                                    <button onClick={saveProfile} disabled={saving || (!hasChanges && !savedFlag)}
-                                        className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[12px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shrink-0"
-                                        style={{ background: BRAND }}>
-                                        {saving ? <Loader2 className="size-3.5 animate-spin" /> : savedFlag ? <CheckCircle2 className="size-3.5" /> : <Save className="size-3.5" />}
-                                        {saving ? "Saving…" : savedFlag ? "Saved!" : "Save Profile"}
-                                    </button>
                                 </div>
-                                <div className="flex-1 overflow-y-auto px-6 py-5 space-y-8">
+
+                                <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+                                    {/* Roles section */}
                                     <section>
                                         <h3 className="text-[13px] font-bold text-zinc-900 mb-3 flex items-center gap-1.5">
-                                            <Shield className="size-4 text-zinc-400" /> Roles & Access
+                                            <Shield className="size-4 text-zinc-400" /> Roles
                                         </h3>
-                                        <div className="bg-white border border-zinc-100 rounded-xl p-4 shadow-sm">
-                                            <div className="flex flex-wrap gap-2 mb-4">
-                                                {allRoles.map(r => (
+                                        <div className="flex flex-wrap gap-2">
+                                            {allRoles.map(r => {
+                                                const active = editedRoles.includes(r.value);
+                                                const color = getRoleColor(r.value);
+                                                return (
                                                     <button key={r.value} onClick={() => toggleRole(r.value)}
-                                                        className={cn("text-[11px] font-semibold rounded-full px-3 py-1.5 transition-all border",
-                                                            editedRoles.includes(r.value) ? "bg-[#3A63C2] text-white border-[#3A63C2] shadow-sm shadow-blue-100" : "bg-zinc-50 text-zinc-500 border-zinc-200 hover:border-zinc-300 hover:bg-zinc-100")}>
+                                                        className={cn("flex items-center gap-1.5 text-[12px] font-semibold rounded-lg px-3 py-2 transition-all border",
+                                                            active ? "text-white shadow-sm" : "bg-white text-zinc-600 border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50")}
+                                                        style={active ? { background: color, borderColor: color } : undefined}>
+                                                        {active && <Check className="size-3" />}
                                                         {r.label}
                                                     </button>
-                                                ))}
-                                                {editedRoles.filter(er => !allRoles.find(ar => ar.value === er)).map(customRole => (
-                                                    <button key={customRole} onClick={() => toggleRole(customRole)}
-                                                        className="text-[11px] font-semibold rounded-full px-3 py-1.5 transition-all border bg-[#3A63C2] text-white border-[#3A63C2] shadow-sm shadow-blue-100 flex items-center gap-1">
-                                                        {customRole.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())} <X className="size-3 text-white/70" />
-                                                    </button>
-                                                ))}
-                                            </div>
+                                                );
+                                            })}
                                         </div>
                                     </section>
 
+                                    {/* Role-based courses (auto-assigned, read-only) */}
+                                    {(() => {
+                                        const roleCourses = publishedCourses.filter(c => {
+                                            const courseRoles = (c.assignedRoles || "").split(",").map(r => r.trim()).filter(Boolean);
+                                            return editedRoles.some(er => courseRoles.includes(er));
+                                        });
+                                        if (roleCourses.length === 0) return null;
+                                        return (
+                                            <section>
+                                                <h3 className="text-[13px] font-bold text-zinc-900 mb-1 flex items-center gap-1.5">
+                                                    <BookOpen className="size-4 text-zinc-400" /> Courses from Role
+                                                </h3>
+                                                <p className="text-[11px] text-zinc-400 mb-3">Automatically available based on their role assignment.</p>
+                                                <div className="space-y-2">
+                                                    {roleCourses.map(c => {
+                                                        const totalLessons = (c.modules ?? []).reduce((a, m) => a + (m.lessons?.length ?? 0), 0);
+                                                        const existingAssignment = (selectedUser.assignedCourses ?? []).find(
+                                                            (ac: any) => (ac.courseId ?? ac.course?.id) === c.id
+                                                        ) as any;
+                                                        const progress = existingAssignment?.progress ?? 0;
+                                                        return (
+                                                            <div key={c.id} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-zinc-100 bg-zinc-50/30">
+                                                                <div className="size-9 rounded-lg flex items-center justify-center text-lg shrink-0" style={{ background: `${c.color}15` }}>
+                                                                    {c.thumbnail}
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className="text-[13px] font-semibold text-zinc-800 truncate">{c.title}</p>
+                                                                    <p className="text-[11px] text-zinc-400">
+                                                                        {c.modules?.length ?? 0} modules · {totalLessons} lessons
+                                                                        <> · <span className="text-zinc-300">via {roleLabel(c.assignedRoles)}</span></>
+                                                                    </p>
+                                                                </div>
+                                                                {progress > 0 && (
+                                                                    <div className="shrink-0 flex items-center gap-2">
+                                                                        <div className="w-16 h-1.5 rounded-full bg-zinc-200 overflow-hidden">
+                                                                            <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: progress === 100 ? "#059669" : BRAND }} />
+                                                                        </div>
+                                                                        <span className="text-[10px] font-semibold" style={{ color: progress === 100 ? "#059669" : BRAND }}>{progress}%</span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </section>
+                                        );
+                                    })()}
 
+                                    {/* Additional course assignment (courses outside their role) */}
+                                    <section>
+                                        <h3 className="text-[13px] font-bold text-zinc-900 mb-1 flex items-center gap-1.5">
+                                            <GraduationCap className="size-4 text-zinc-400" /> Additional Courses
+                                        </h3>
+                                        <p className="text-[11px] text-zinc-400 mb-3">Assign extra courses beyond what their role includes.</p>
+
+                                        {(() => {
+                                            // Filter out courses already covered by the user's roles
+                                            const extraCourses = publishedCourses.filter(c => {
+                                                const courseRoles = (c.assignedRoles || "").split(",").map(r => r.trim()).filter(Boolean);
+                                                const coveredByRole = editedRoles.some(er => courseRoles.includes(er));
+                                                return !coveredByRole;
+                                            });
+
+                                            if (extraCourses.length === 0) return (
+                                                <div className="rounded-xl border border-dashed border-zinc-200 bg-zinc-50/50 py-6 text-center">
+                                                    <p className="text-[12px] text-zinc-400">All published courses are already covered by this member's roles</p>
+                                                </div>
+                                            );
+
+                                            return (
+                                                <div className="space-y-2">
+                                                    {extraCourses.map(c => {
+                                                        const assigned = editedCourses.includes(c.id);
+                                                        const totalLessons = (c.modules ?? []).reduce((a, m) => a + (m.lessons?.length ?? 0), 0);
+                                                        const existingAssignment = (selectedUser.assignedCourses ?? []).find(
+                                                            (ac: any) => (ac.courseId ?? ac.course?.id) === c.id
+                                                        ) as any;
+                                                        const progress = existingAssignment?.progress ?? 0;
+
+                                                        return (
+                                                            <button key={c.id} onClick={() => toggleCourse(c.id)}
+                                                                className={cn(
+                                                                    "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all border",
+                                                                    assigned ? "border-blue-200 bg-blue-50/50" : "border-zinc-100 bg-zinc-50/30 hover:bg-zinc-50"
+                                                                )}>
+                                                                <div className={cn(
+                                                                    "size-5 rounded-md flex items-center justify-center shrink-0 transition-all border",
+                                                                    assigned ? "border-[#3A63C2] bg-[#3A63C2]" : "border-zinc-300 bg-white"
+                                                                )}>
+                                                                    {assigned && <Check className="size-3 text-white" />}
+                                                                </div>
+                                                                <div className="size-9 rounded-lg flex items-center justify-center text-lg shrink-0" style={{ background: `${c.color}15` }}>
+                                                                    {c.thumbnail}
+                                                                </div>
+                                                                <div className="flex-1 min-w-0">
+                                                                    <p className={cn("text-[13px] font-semibold truncate", assigned ? "text-zinc-900" : "text-zinc-600")}>
+                                                                        {c.title}
+                                                                    </p>
+                                                                    <p className="text-[11px] text-zinc-400">
+                                                                        {c.modules?.length ?? 0} modules · {totalLessons} lessons
+                                                                        {(c.assignedRoles ?? "").split(",").filter(Boolean).length > 0 && (
+                                                                            <> · <span className="text-zinc-300">{roleLabel(c.assignedRoles)}</span></>
+                                                                        )}
+                                                                    </p>
+                                                                </div>
+                                                                {assigned && progress > 0 && (
+                                                                    <div className="shrink-0 flex items-center gap-2">
+                                                                        <div className="w-16 h-1.5 rounded-full bg-zinc-200 overflow-hidden">
+                                                                            <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: progress === 100 ? "#059669" : BRAND }} />
+                                                                        </div>
+                                                                        <span className="text-[10px] font-semibold" style={{ color: progress === 100 ? "#059669" : BRAND }}>{progress}%</span>
+                                                                    </div>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            );
+                                        })()}
+                                    </section>
                                 </div>
                             </div>
                         )}

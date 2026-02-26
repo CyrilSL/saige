@@ -1,12 +1,13 @@
 import { db } from "@/lib/db";
-import { courses, userLessonProgress } from "@/lib/db/schema";
+import { courses, userLessonProgress, userCourseAssignments } from "@/lib/db/schema";
 import { NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { PRACTICE_ID } from "@/lib/config";
 
 // GET /api/learn/courses?role=front_desk&userId=1
-// Returns published courses assigned to a given role.
-// If no role param, returns all published courses for this practice.
+// Returns published courses that are either:
+//   1. Assigned to the user's role (via course.assignedRoles), OR
+//   2. Directly assigned to the user (via userCourseAssignments)
 export async function GET(req: Request) {
     try {
         const { searchParams } = new URL(req.url);
@@ -29,14 +30,32 @@ export async function GET(req: Request) {
             },
         });
 
-        // Filter by role: show course if no roles assigned (visible to all)
-        // or if the user's role appears in assignedRoles
-        const filtered = role
-            ? allCourses.filter(c => {
+        // Get courses directly assigned to this user
+        const directlyAssignedIds = new Set<number>();
+        if (userId) {
+            const assignments = await db.query.userCourseAssignments.findMany({
+                where: eq(userCourseAssignments.userId, userId),
+            });
+            for (const a of assignments) {
+                directlyAssignedIds.add(a.courseId);
+            }
+        }
+
+        // Show course if:
+        //   - it matches the user's role (or has no roles = visible to all), OR
+        //   - it's directly assigned to this user
+        const filtered = allCourses.filter(c => {
+            // Direct assignment always wins
+            if (directlyAssignedIds.has(c.id)) return true;
+
+            // Role-based match
+            if (role) {
                 const roles = (c.assignedRoles ?? "").split(",").map(r => r.trim()).filter(Boolean);
                 return roles.length === 0 || roles.includes(role);
-            })
-            : allCourses;
+            }
+
+            return true;
+        });
 
         if (!userId) {
             return NextResponse.json(filtered);
