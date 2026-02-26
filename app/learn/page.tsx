@@ -417,6 +417,7 @@ export default function LearnPage() {
     const [dbCourses, setDbCourses] = useState<Course[]>([]);
     const [loadingCourses, setLoadingCourses] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const [activeCategory, setActiveCategory] = useState("all");
     const [activeCourse, setActiveCourse] = useState<Course | null>(null);
     const activeCourseId = activeCourse?.id ?? null;
 
@@ -473,16 +474,41 @@ export default function LearnPage() {
             const matchSearch = searchQuery === "" ||
                 c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 c.subtitle.toLowerCase().includes(searchQuery.toLowerCase());
-            return matchSearch;
+            const matchCategory = activeCategory === "all" || c.category === activeCategory;
+            return matchSearch && matchCategory;
         });
-    }, [dbCourses, searchQuery]);
+    }, [dbCourses, searchQuery, activeCategory]);
 
     const inProgress = dbCourses.filter(c => c.progress > 0 && c.progress < 100);
     const completed = dbCourses.filter(c => c.progress === 100);
 
     return (
         <div className="flex h-screen w-full overflow-hidden bg-[#F8F9FC]">
-            <AppSidebar />
+            <AppSidebar>
+                <nav className="px-3 pt-3 pb-2 space-y-0.5">
+                    <div className="pb-1 px-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-300">Categories</p>
+                    </div>
+                    {CATEGORIES.map(cat => (
+                        <button
+                            key={cat.id}
+                            onClick={() => { setActiveCategory(cat.id); setActiveCourse(null); }}
+                            className={cn(
+                                "w-full flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors text-left",
+                                activeCategory === cat.id
+                                    ? "font-semibold bg-[#eef2fb] text-[#3A63C2]"
+                                    : "text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50 font-medium"
+                            )}
+                        >
+                            <span className="text-sm">{cat.icon}</span>
+                            <span className="flex-1">{cat.label}</span>
+                            <span className="text-[11px] text-zinc-300 font-normal">
+                                {cat.id === "all" ? dbCourses.length : dbCourses.filter(c => c.category === cat.id).length}
+                            </span>
+                        </button>
+                    ))}
+                </nav>
+            </AppSidebar>
 
             <main className="flex flex-1 flex-col overflow-hidden">
                 <header className="flex shrink-0 items-center gap-4 border-b border-zinc-100 bg-white px-6 h-14">

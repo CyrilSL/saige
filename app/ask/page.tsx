@@ -16,10 +16,6 @@ import {
     Trash2,
     Star,
     Archive,
-    Settings,
-    BookOpen,
-    Bell,
-    ChevronRight,
     Bot,
 } from "lucide-react";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -480,28 +476,15 @@ export default function AskPage() {
                 {/* ── Main chat area ── */}
                 <main className="flex flex-1 flex-col overflow-hidden">
                     {/* Top bar */}
-                    <header className="flex h-14 shrink-0 items-center gap-4 border-b border-zinc-100 bg-white px-6">
-                        {activeConversation && activeConversation.messages.length > 0 ? (
-                            <div className="flex items-center gap-2 min-w-0">
-                                <ChevronRight className="size-3.5 text-zinc-400 shrink-0" />
-                                <h2 className="text-[13px] font-medium text-zinc-700 truncate max-w-[400px]">
-                                    {activeConversation.title}
-                                </h2>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-2">
-                                <div
-                                    className="flex size-6 items-center justify-center rounded-lg shadow-sm"
-                                    style={{ background: BRAND }}
-                                >
-                                    <Sparkles className="size-3.5 text-white" />
-                                </div>
-                                <span className="text-[13px] font-semibold text-zinc-700">Ask Saige</span>
-                            </div>
-                        )}
+                    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-zinc-100 px-6">
+                        <Sparkles className="size-4" style={{ color: BRAND }} />
+                        <span className="text-[14px] font-semibold text-zinc-700">
+                            {activeConversation && activeConversation.messages.length > 0
+                                ? activeConversation.title
+                                : "Ask Saige"}
+                        </span>
 
                         <div className="ml-auto flex items-center gap-3">
-                            {/* Assist mode toggle */}
                             <button
                                 onClick={() => setAssistMode((v) => !v)}
                                 className={cn(
@@ -514,7 +497,6 @@ export default function AskPage() {
                             >
                                 {assistMode ? "Assist mode" : "Chat mode"}
                             </button>
-
                         </div>
                     </header>
 
@@ -572,7 +554,7 @@ export default function AskPage() {
                     </div>
 
                     {/* Input bar */}
-                    <div className="shrink-0 border-t border-zinc-100 bg-white px-4 py-4">
+                    <div className="shrink-0 border-t border-zinc-100 px-4 py-4">
                         <div className="mx-auto max-w-3xl">
                             <ChatInput
                                 onSend={handleSend}

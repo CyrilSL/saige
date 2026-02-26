@@ -3,20 +3,13 @@
 import { useRef, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
     ArrowUp,
-    Paperclip,
-    Mic,
-    Globe,
-    Lightbulb,
     Square,
     Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const BRAND = "#3A63C2";
 
 interface ChatInputProps {
     onSend: (message: string) => void;
@@ -58,8 +51,8 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled }: ChatInputPr
         <div className="relative w-full">
             <div
                 className={cn(
-                    "relative rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all duration-200",
-                    "focus-within:border-zinc-300 focus-within:shadow-md focus-within:ring-2 focus-within:ring-violet-100"
+                    "relative rounded-2xl border border-zinc-200 bg-zinc-50/80 transition-all duration-200",
+                    "focus-within:border-[#3A63C2]/40 focus-within:ring-2 focus-within:ring-[#3A63C2]/10"
                 )}
             >
                 {/* Textarea */}
@@ -72,8 +65,8 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled }: ChatInputPr
                     disabled={disabled}
                     rows={1}
                     className={cn(
-                        "w-full resize-none bg-transparent px-4 pt-4 pb-2 text-[14px] leading-relaxed text-foreground",
-                        "placeholder:text-muted-foreground/50 focus:outline-none",
+                        "w-full resize-none bg-transparent px-4 pt-4 pb-2 text-[14px] leading-relaxed text-zinc-800",
+                        "placeholder:text-zinc-400 focus:outline-none",
                         "min-h-[52px] max-h-[200px] overflow-y-auto",
                         "disabled:opacity-50 disabled:cursor-not-allowed"
                     )}
@@ -81,76 +74,23 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled }: ChatInputPr
 
                 {/* Bottom toolbar */}
                 <div className="flex items-center gap-1 px-3 pb-3 pt-1">
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon-xs"
-                                disabled={disabled}
-                                className="size-7 text-muted-foreground/60 hover:text-foreground rounded-lg"
-                            >
-                                <Paperclip className="size-3.5" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Attach file</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon-xs"
-                                disabled={disabled}
-                                className="size-7 text-muted-foreground/60 hover:text-foreground rounded-lg"
-                            >
-                                <Globe className="size-3.5" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Web search</TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="icon-xs"
-                                disabled={disabled}
-                                className="size-7 text-muted-foreground/60 hover:text-foreground rounded-lg"
-                            >
-                                <Lightbulb className="size-3.5" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Deep think</TooltipContent>
-                    </Tooltip>
-
                     {/* Character count (subtle) */}
                     {value.length > 200 && (
-                        <span className="ml-1 text-[11px] text-muted-foreground/50">
+                        <span className="text-[11px] text-zinc-400">
                             {value.length}
                         </span>
                     )}
 
                     <div className="ml-auto flex items-center gap-1.5">
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="icon-xs"
-                                    disabled={disabled}
-                                    className="size-7 text-muted-foreground/60 hover:text-foreground rounded-lg"
-                                >
-                                    <Mic className="size-3.5" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Voice input</TooltipContent>
-                        </Tooltip>
-
                         {isStreaming ? (
                             <Button
                                 variant="default"
                                 size="icon-xs"
                                 onClick={onStop}
-                                className="size-7 rounded-lg bg-foreground hover:bg-foreground/90"
+                                className="size-7 rounded-lg text-white hover:opacity-90"
+                                style={{ background: BRAND }}
                             >
-                                <Square className="size-3 fill-background" />
+                                <Square className="size-3 fill-white" />
                             </Button>
                         ) : (
                             <Button
@@ -161,9 +101,10 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled }: ChatInputPr
                                 className={cn(
                                     "size-7 rounded-lg transition-all duration-150",
                                     canSend
-                                        ? "bg-foreground hover:bg-foreground/90 scale-100"
-                                        : "bg-muted text-muted-foreground/40 cursor-not-allowed scale-95"
+                                        ? "text-white hover:opacity-90 scale-100"
+                                        : "bg-zinc-200 text-zinc-400 cursor-not-allowed scale-95"
                                 )}
+                                style={canSend ? { background: BRAND } : undefined}
                             >
                                 {isStreaming ? (
                                     <Loader2 className="size-3 animate-spin" />
@@ -176,7 +117,7 @@ export function ChatInput({ onSend, isStreaming, onStop, disabled }: ChatInputPr
                 </div>
             </div>
 
-            <p className="mt-2 text-center text-[11px] text-muted-foreground/40">
+            <p className="mt-2 text-center text-[11px] text-zinc-400">
                 Saige may make mistakes. Consider checking important information.
             </p>
         </div>

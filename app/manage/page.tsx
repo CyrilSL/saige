@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-    BookOpen, Users, Brain, LayoutDashboard, Sparkles,
+    BookOpen, Users, Brain, Sparkles, LayoutDashboard,
     Plus, Search, FileText, Trash2, Edit3,
     Upload, X, GraduationCap, UserPlus, Globe, Lock, Loader2,
     ClipboardList, ArrowLeft, CheckCircle2, Eye, EyeOff, Save,
@@ -1532,9 +1532,7 @@ export default function ManagePage() {
             <main className="flex flex-1 flex-col overflow-hidden">
                 <header className="flex shrink-0 items-center gap-3 border-b border-zinc-100 bg-white px-6 h-14">
                     <LayoutDashboard className="size-4" style={{ color: BRAND }} />
-                    <span className="text-[14px] font-bold text-zinc-800">
-                        {tab === "train" ? "Train AI" : tab === "team" ? "Team / Roles" : "Courses"}
-                    </span>
+                    <span className="text-[14px] font-semibold text-zinc-700">Manage</span>
                 </header>
 
                 {tab === "courses" && <CoursesTab />}
